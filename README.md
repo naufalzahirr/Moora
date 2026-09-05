@@ -42,7 +42,7 @@ DB_DATABASE=/path/absolut/proyek/database/database.sqlite
 
 ## Data impor
 
-CSV/XLS/XLSX maksimal 10 MB (hingga 10.000 baris per impor) dapat memakai nama kolom: `kode barang`/`no. barang`, `nama barang`/`deskripsi barang`, `jumlah terjual`/`kts. standar`, dan `nilai penjualan`/`nilai barang`. Nilai numerik wajib terisi, valid, dan nonnegatif. Unduh template CSV pada dialog impor bila diperlukan. Stok akhir dilengkapi pada halaman Data Operasional sebelum analisis dilakukan.
+CSV/XLS/XLSX maksimal 10 MB (hingga 10.000 baris per impor) dapat memakai nama kolom: `kode barang`/`no. barang`, `nama barang`/`deskripsi barang`, `jumlah terjual`/`kts. standar`, dan `nilai penjualan`/`nilai barang`. Nilai numerik wajib terisi, valid, dan nonnegatif. Unduh template CSV pada dialog impor bila diperlukan. Data Operasional dapat disimpan sebagai draft meskipun sebagian kolom masih kosong. Kolom kosong tetap dianggap belum diisi. Lengkapi seluruh penjualan dan stok akhir sebelum membuat rekomendasi. Daftar ditampilkan 50 barang per halaman; simpan perubahan sebelum berpindah halaman.
 
 Batas aplikasi dan PHP diselaraskan melalui `public/.user.ini` (`upload_max_filesize=10M`, `post_max_size=12M`). Pada server yang mengabaikan `.user.ini`, terapkan nilai yang sama pada konfigurasi PHP/FPM atau panel hosting.
 
@@ -52,8 +52,8 @@ Untuk deployment HTTPS, gunakan konfigurasi production agar debug mati, cookie s
 
 1. Buat data operasional untuk periode penjualan baru, lalu impor atau isi penjualan dan stok akhir.
 2. Jalankan MOORA untuk membentuk snapshot prioritas dan rekomendasi jumlah restock.
-3. Petugas menyiapkan usulan pada **Tindak Lanjut**; Owner menyetujui atau menolak keputusan akhir.
-4. Owner membuat draft **Pesanan Pembelian** dari keputusan yang disetujui; barang otomatis dikelompokkan per supplier.
+3. Pada **Tindak Lanjut**, pilih barang dan sesuaikan jumlah/catatan, lalu simpan draft atau kirim usulan. Owner menyetujui atau menolak keputusan akhir. Aksi massal menyimpan isian barang terpilih; keputusan akhir terkunci bagi Petugas.
+4. Owner meninjau pengelompokan supplier sebelum membuat draft **Pesanan Pembelian**. Satu supplier menghasilkan satu pesanan, yang dapat berisi beberapa barang.
 5. Owner menyetujui pesanan; petugas menandai pesanan sudah dikirim ke supplier.
 6. Catat penerimaan barang penuh atau sebagian. Stok berjalan akan bertambah otomatis. Gunakan **Stok Berjalan** untuk stok opname dan audit mutasi.
 
@@ -86,3 +86,9 @@ php artisan schedule:work
 ```
 
 Backup manual dapat dibuat dengan `php artisan app:backup-database`. Atur `BACKUP_DAILY_AT` dan `BACKUP_RETENTION_DAYS` pada environment bila diperlukan. Untuk MySQL/PostgreSQL, gunakan backup terkelola dari server database.
+
+## Memperbarui instalasi yang sudah ada
+
+Jalankan `php artisan migrate --force` untuk menerapkan migrasi baru, kemudian `npm run build` untuk membangun aset antarmuka. Migrasi draft membuat kolom penjualan dan stok akhir menerima nilai kosong tanpa mengubah nilai yang sudah tersimpan. Cadangkan database sebelum pembaruan.
+
+Validasi: `vendor/bin/phpunit --do-not-cache-result` dan `node --test tests/js/*.test.js`.

@@ -16,7 +16,7 @@ class RestockActionRequest extends FormRequest
     {
         return [
             'status' => ['required', Rule::in(['pending', 'proposed', 'approved', 'skipped'])],
-            'approved_quantity' => ['nullable', 'numeric', 'min:0', 'required_unless:status,skipped'],
+            'approved_quantity' => ['nullable', 'numeric', in_array($this->input('status'), ['proposed', 'approved'], true) ? 'gt:0' : 'min:0', 'required_unless:status,skipped'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ];
     }

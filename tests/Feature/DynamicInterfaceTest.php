@@ -104,7 +104,7 @@ class DynamicInterfaceTest extends TestCase
             ->assertOk()
             ->assertDontSee('Pilih data penjualan yang ditampilkan')
             ->assertDontSee('Nilai Kriteria')
-            ->assertSee('data-debounced-submit', false)
+            ->assertSee('name="search"', false)
             ->assertSee('1 barang ditemukan')
             ->assertSee('Stok Minimum');
     }

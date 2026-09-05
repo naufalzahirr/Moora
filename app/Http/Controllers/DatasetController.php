@@ -15,6 +15,7 @@ use App\Services\SalesImportService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -32,8 +33,8 @@ class DatasetController extends Controller
             : Period::latest('id')->first();
 
         $sales = $period
-            ? $period->sales()->with('product')->orderBy('product_id')->get()
-            : collect();
+            ? $period->sales()->with('product')->orderBy('product_id')->paginate(50)->withQueryString()
+            : new LengthAwarePaginator([], 0, 50);
         $stocks = $period?->stockMovements()->get()->keyBy('product_id') ?? collect();
         $criteria = Criterion::orderBy('code')->get();
 
@@ -43,7 +44,7 @@ class DatasetController extends Controller
             'sales' => $sales,
             'stocks' => $stocks,
             'criteria' => $criteria,
-            'completeCount' => $sales->filter(function (Sale $sale) use ($stocks, $criteria): bool {
+            'completeCount' => ($period?->sales()->get() ?? collect())->filter(function (Sale $sale) use ($stocks, $criteria): bool {
                 $stock = $stocks->get($sale->product_id);
 
                 return $criteria->every(fn (Criterion $criterion): bool => $criterion->valueFor($sale, $stock) !== null);
@@ -75,8 +76,8 @@ class DatasetController extends Controller
                 Sale::create([
                     'period_id' => $period->id,
                     'product_id' => $product->id,
-                    'sold_quantity' => 0,
-                    'sales_value' => 0,
+                    'sold_quantity' => null,
+                    'sales_value' => null,
                     'source_reference' => 'Input manual',
                 ]);
             }
@@ -175,8 +176,8 @@ class DatasetController extends Controller
                 Sale::updateOrCreate(
                     ['period_id' => $period->id, 'product_id' => $product->id],
                     [
-                        'sold_quantity' => $row['sold_quantity'],
-                        'sales_value' => $row['sales_value'],
+                        'sold_quantity' => $row['sold_quantity'] ?? null,
+                        'sales_value' => $row['sales_value'] ?? null,
                         'manual_yi' => $row['manual_yi'] ?? null,
                         'source_reference' => $period->source_file ?? 'Input manual',
                     ]
@@ -184,13 +185,17 @@ class DatasetController extends Controller
                 StockMovement::updateOrCreate(
                     ['period_id' => $period->id, 'product_id' => $product->id],
                     [
-                        'ending_stock' => $row['ending_stock'],
+                        'ending_stock' => $row['ending_stock'] ?? null,
                         'source' => 'Input stok akhir',
                         'recorded_by' => $request->user()->id,
                     ]
                 );
             }
-            $period->update(['status' => 'ready']);
+            $stocks = $period->stockMovements()->get()->keyBy('product_id');
+            $complete = $period->sales()->get()->every(fn (Sale $sale): bool => $sale->sold_quantity !== null && $sale->sales_value !== null
+                && $stocks->get($sale->product_id)?->ending_stock !== null
+            );
+            $period->update(['status' => $complete ? 'ready' : 'draft']);
         });
 
         $logger->log($request->user(), 'dataset.updated', "Menyimpan data operasional {$period->displayName()}.", ['period_id' => $period->id]);
@@ -211,8 +216,8 @@ class DatasetController extends Controller
                 ->with('success', 'Data disimpan dan rekomendasi restock berhasil dibuat.');
         }
 
-        return redirect()->route('datasets.index', ['period' => $period])
-            ->with('success', 'Data berhasil disimpan dan siap dibuatkan rekomendasi.');
+        return redirect()->route('datasets.index', ['period' => $period, 'page' => $request->integer('page', 1)])
+            ->with('success', $period->status === 'ready' ? 'Data berhasil disimpan dan siap dibuatkan rekomendasi.' : 'Draft tersimpan. Isian yang belum lengkap dapat dilanjutkan nanti.');
     }
 
     public function revise(Request $request, Period $period, ActivityLogger $logger): RedirectResponse

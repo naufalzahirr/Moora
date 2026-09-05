@@ -52,11 +52,14 @@ class CalculationController extends Controller
         }
         $run ??= MooraRun::latest('id')->first();
         if ($run) {
-            $run->load(['period', 'results' => fn ($query) => $query->with(['product', 'restockAction'])->orderBy('rank_system')]);
+            $run->load('period');
         }
 
         return view('calculations.results', [
             'run' => $run,
+            'results' => $run?->results()->with(['product', 'restockAction'])
+                ->when($request->filled('q'), fn ($query) => $query->searchProduct(trim($request->string('q')->toString())))
+                ->orderBy('rank_system')->paginate(50)->withQueryString(),
             'runs' => MooraRun::with('period')->latest('id')->get(),
         ]);
     }

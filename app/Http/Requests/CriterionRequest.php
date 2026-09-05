@@ -14,9 +14,10 @@ class CriterionRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'weight_unit' => ['nullable', 'in:percent,fraction'],
             'criteria' => ['required', 'array', 'min:1'],
             'criteria.*.type' => ['required', 'in:benefit,cost'],
-            'criteria.*.weight' => ['required', 'numeric', 'min:0.000001', 'max:1'],
+            'criteria.*.weight' => ['required', 'numeric', 'min:0.000001', $this->input('weight_unit') === 'percent' ? 'max:100' : 'max:1'],
             'criteria.*.active' => ['nullable', 'boolean'],
         ];
     }

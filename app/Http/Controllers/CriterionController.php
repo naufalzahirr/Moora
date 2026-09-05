@@ -21,7 +21,13 @@ class CriterionController extends Controller
 
     public function update(CriterionRequest $request, ActivityLogger $logger): RedirectResponse
     {
-        $payload = collect($request->validated('criteria'));
+        $payload = collect($request->validated('criteria'))->map(function (array $row) use ($request): array {
+            if ($request->input('weight_unit') === 'percent') {
+                $row['weight'] = (float) $row['weight'] / 100;
+            }
+
+            return $row;
+        });
         $active = $payload->filter(fn (array $row): bool => (bool) ($row['active'] ?? false));
         $total = $active->sum(fn (array $row): float => (float) $row['weight']);
 

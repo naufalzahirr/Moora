@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -49,6 +50,15 @@ class MooraResult extends Model
     public function displayProductCode(): string
     {
         return $this->product_code_snapshot ?: ($this->product?->code ?? '—');
+    }
+
+    public function scopeSearchProduct(Builder $query, string $search): Builder
+    {
+        return $query->where(fn ($query) => $query
+            ->where('product_name_snapshot', 'like', "%{$search}%")
+            ->orWhere('product_code_snapshot', 'like', "%{$search}%")
+            ->orWhereHas('product', fn ($query) => $query
+                ->where('name', 'like', "%{$search}%")->orWhere('code', 'like', "%{$search}%")));
     }
 
     public function displayProductName(): string

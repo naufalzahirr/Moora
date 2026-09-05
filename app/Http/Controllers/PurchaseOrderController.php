@@ -19,19 +19,31 @@ class PurchaseOrderController extends Controller
 {
     public function index(Request $request): View
     {
-        $orders = PurchaseOrder::query()
-            ->with(['supplier', 'items.product'])
-            ->latest('id')
-            ->get();
-        $order = $request->integer('order')
-            ? $orders->firstWhere('id', $request->integer('order')) ?? abort(404)
-            : $orders->first();
-
-        if ($order) {
-            $order->load(['supplier', 'run.period', 'creator', 'approver', 'items.product']);
+        $search = trim($request->string('q')->toString());
+        $status = $request->string('status')->toString();
+        $query = PurchaseOrder::query()->with('supplier')->withCount('items')->latest('id');
+        if ($request->integer('run')) {
+            $query->where('moora_run_id', $request->integer('run'));
         }
+        if ($search !== '') {
+            $query->where(fn ($query) => $query->where('order_number', 'like', "%{$search}%")
+                ->orWhereHas('supplier', fn ($query) => $query->where('name', 'like', "%{$search}%")));
+        }
+        if ($status === 'pending') {
+            $query->whereIn('status', ['draft', 'approved']);
+        } elseif ($status === 'receiving') {
+            $query->whereIn('status', ['ordered', 'partial']);
+        } elseif (in_array($status, ['draft', 'approved', 'ordered', 'partial', 'received', 'cancelled'], true)) {
+            $query->where('status', $status);
+        }
+        $orders = (clone $query)->paginate(15)->withQueryString();
+        $order = $request->integer('order')
+            ? (clone $query)->whereKey($request->integer('order'))->first()
+            : $orders->first();
+        $order?->load(['supplier', 'run.period', 'creator', 'approver', 'items.product']);
+        $run = $order?->run ?? ($request->integer('run') ? MooraRun::with('period')->find($request->integer('run')) : null);
 
-        return view('purchase-orders.index', compact('orders', 'order'));
+        return view('purchase-orders.index', compact('orders', 'order', 'run', 'search', 'status'));
     }
 
     public function createFromRun(MooraRun $run, Request $request, ActivityLogger $logger): RedirectResponse

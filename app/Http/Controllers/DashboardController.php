@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Criterion;
 use App\Models\MooraRun;
 use App\Models\Period;
 use App\Models\Product;
+use App\Models\PurchaseOrder;
 use App\Services\InventoryService;
 use Illuminate\View\View;
 
@@ -15,7 +15,7 @@ class DashboardController extends Controller
     {
         $latestRun = MooraRun::with('period')->latest('id')->first();
         $pendingPeriod = Period::query()
-            ->where('status', 'draft')
+            ->whereIn('status', ['draft', 'ready'])
             ->latest('updated_at')
             ->latest('id')
             ->first();
@@ -24,17 +24,6 @@ class DashboardController extends Controller
             'results' => fn ($query) => $query->with(['product', 'restockAction'])->orderBy('rank_system'),
         ]);
         $period = $run?->period ?? $pendingPeriod;
-        $criteria = Criterion::active()->orderBy('code')->get();
-        $dashboardCriteria = $run
-            ? collect($run->criteria_snapshot)
-            : $criteria->mapWithKeys(fn (Criterion $criterion): array => [$criterion->code => [
-                'code' => $criterion->code,
-                'name' => $criterion->name,
-                'type' => $criterion->type,
-                'weight' => (float) $criterion->weight,
-                'source' => $criterion->value_source,
-            ]]);
-
         $activeProducts = Product::where('active', true)->get();
         $inventorySummary = $inventory->summaryForProducts($activeProducts);
 
@@ -42,9 +31,14 @@ class DashboardController extends Controller
             'run' => $run,
             'period' => $period,
             'pendingPeriod' => $pendingPeriod,
-            'dashboardCriteria' => $dashboardCriteria,
-            'productCount' => $run?->total_alternatives
-                ?? ($period ? $period->sales()->count() : Product::where('active', true)->count()),
+            'productCount' => $activeProducts->count(),
+            'proposedCount' => $run?->results->filter(fn ($result) => $result->restockAction?->status === 'proposed')->count() ?? 0,
+            'pendingOrderCount' => PurchaseOrder::whereIn('status', ['draft', 'approved'])->count(),
+            'awaitingReceiptCount' => PurchaseOrder::whereIn('status', ['ordered', 'partial'])->count(),
+            'priorities' => $run?->results->filter(fn ($result) => (float) $result->restock_quantity > 0
+                && ! $result->restockAction?->purchase_order_id
+                && ! in_array($result->restockAction?->status, ['ordered', 'received', 'skipped'], true)
+            )->take(5) ?? collect(),
             'inventorySummary' => $inventorySummary,
             'lowStockCount' => $activeProducts->filter(
                 fn (Product $product): bool => (float) $product->minimum_stock > 0

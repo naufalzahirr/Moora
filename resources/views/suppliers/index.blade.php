@@ -15,7 +15,7 @@
     <div class="card-header"><h2>Daftar Supplier</h2><small>{{ $suppliers->count() }} supplier tercatat</small></div>
     <div class="card-body">
         <div class="table-wrap">
-            <table>
+            <table class="responsive-table">
                 <thead><tr><th>Supplier</th><th>Kontak</th><th class="numeric">Lead Time</th><th class="numeric">Barang</th><th class="numeric">Pesanan</th><th>Status</th><th></th></tr></thead>
                 <tbody>
                 @forelse($suppliers as $supplier)
@@ -41,14 +41,14 @@
 @push('dialogs')
 <dialog id="add-supplier" aria-labelledby="add-supplier-title">
     <div class="dialog-header"><h2 id="add-supplier-title">Tambah Supplier</h2><button type="button" class="dialog-close" data-dialog-close aria-label="Tutup dialog tambah supplier">×</button></div>
-    <form method="POST" action="{{ route('suppliers.store') }}" novalidate>@csrf
+    <form method="POST" action="{{ route('suppliers.store') }}" data-unsaved-form novalidate>@csrf
         <div class="dialog-body">@include('suppliers.partials.form', ['supplier' => null])<div class="form-footer"><button class="button" type="button" data-dialog-close>Batal</button><button class="button primary" type="submit">Simpan Supplier</button></div></div>
     </form>
 </dialog>
 @foreach($suppliers as $supplier)
 <dialog id="edit-supplier-{{ $supplier->id }}" aria-labelledby="edit-supplier-title-{{ $supplier->id }}">
     <div class="dialog-header"><h2 id="edit-supplier-title-{{ $supplier->id }}">Ubah Supplier: {{ $supplier->name }}</h2><button type="button" class="dialog-close" data-dialog-close aria-label="Tutup dialog ubah supplier">×</button></div>
-    <form method="POST" action="{{ route('suppliers.update', $supplier) }}" novalidate>@csrf @method('PUT')
+    <form method="POST" action="{{ route('suppliers.update', $supplier) }}" data-unsaved-form novalidate>@csrf @method('PUT')
         <div class="dialog-body">@include('suppliers.partials.form', ['supplier' => $supplier])<div class="form-footer"><button class="button" type="button" data-dialog-close>Batal</button><button class="button primary" type="submit">Simpan Perubahan</button></div></div>
     </form>
 </dialog>

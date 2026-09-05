@@ -31,8 +31,9 @@ class ReportController extends Controller
         }
         $runs = $runsQuery->paginate(10)->withQueryString();
         $run = $request->integer('run')
-            ? MooraRun::with(['period', 'results' => fn ($query) => $query->with('product')->orderBy('rank_system'), 'report'])->findOrFail($request->integer('run'))
-            : MooraRun::with(['period', 'results' => fn ($query) => $query->with('product')->orderBy('rank_system'), 'report'])->latest('id')->first();
+            ? (clone $runsQuery)->whereKey($request->integer('run'))->first()
+            : $runs->first();
+        $run?->load(['results' => fn ($query) => $query->with('product')->orderBy('rank_system')]);
 
         return view('reports.index', compact('runs', 'run', 'search', 'from', 'until'));
     }

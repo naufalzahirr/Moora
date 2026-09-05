@@ -6,9 +6,12 @@ use App\Http\Requests\RestockActionRequest;
 use App\Models\MooraResult;
 use App\Models\MooraRun;
 use App\Models\RestockAction;
+use App\Models\Supplier;
+use App\Models\User;
 use App\Services\ActivityLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -22,16 +25,37 @@ class RestockActionController extends Controller
             ? MooraRun::findOrFail($request->integer('run'))
             : $runs->first();
 
+        $search = trim($request->string('q')->toString());
+        $status = $request->string('status')->toString();
+        $supplier = $request->integer('supplier');
+        $results = new LengthAwarePaginator([], 0, 50);
+        $statusCounts = collect();
+        $purchaseGroups = collect();
+        $suppliers = Supplier::orderBy('name')->get();
         if ($run) {
-            $run->load([
-                'period',
-                'results' => fn ($query) => $query
-                    ->with(['product.supplier', 'restockAction.processor', 'restockAction.purchaseOrder'])
-                    ->orderBy('rank_system'),
-            ]);
+            $run->load('period');
+            $statusCounts = $run->results()->leftJoin('restock_actions', 'restock_actions.moora_result_id', '=', 'moora_results.id')
+                ->selectRaw("COALESCE(restock_actions.status, 'pending') as state, COUNT(*) as total")
+                ->groupBy('state')->pluck('total', 'state');
+            $purchaseGroups = $run->results()->with(['product.supplier', 'restockAction'])
+                ->whereHas('restockAction', fn ($query) => $query->where('status', 'approved')->whereNull('purchase_order_id')->where('approved_quantity', '>', 0))
+                ->get()->toBase()->groupBy(fn ($result) => $result->product?->supplier_id ?? 'missing');
+            $query = $run->results()->with(['product.supplier', 'restockAction.purchaseOrder'])->orderBy('rank_system');
+            if ($search !== '') {
+                $query->searchProduct($search);
+            }
+            if ($status === 'pending') {
+                $query->where(fn ($query) => $query->whereDoesntHave('restockAction')->orWhereHas('restockAction', fn ($query) => $query->where('status', 'pending')));
+            } elseif (in_array($status, ['proposed', 'approved', 'ordered', 'received', 'skipped'], true)) {
+                $query->whereHas('restockAction', fn ($query) => $query->where('status', $status));
+            }
+            if ($supplier) {
+                $query->whereHas('product', fn ($query) => $query->where('supplier_id', $supplier));
+            }
+            $results = $query->paginate(50)->withQueryString();
         }
 
-        return view('restock-actions.index', compact('run', 'runs'));
+        return view('restock-actions.index', compact('run', 'runs', 'results', 'search', 'status', 'supplier', 'suppliers', 'statusCounts', 'purchaseGroups'));
     }
 
     public function update(
@@ -45,9 +69,9 @@ class RestockActionController extends Controller
         $validated = $request->validated();
         $result->loadMissing('product');
         $action = RestockAction::firstOrNew(['moora_result_id' => $result->id]);
-        if ($action->exists && $action->purchase_order_id) {
+        if (! $action->canBeEditedBy($request->user())) {
             throw ValidationException::withMessages([
-                'restock' => 'Barang ini sudah masuk pesanan pembelian. Ubah status melalui Pesanan Pembelian agar jejak penerimaan dan stok tetap konsisten.',
+                'restock' => 'Keputusan ini terkunci. Hanya Owner dapat mengubah keputusan akhir; barang dalam pesanan diproses melalui Pesanan Pembelian.',
             ]);
         }
         $status = $validated['status'];
@@ -69,31 +93,7 @@ class RestockActionController extends Controller
             ]);
         }
 
-        $action->fill([
-            'status' => $status,
-            'approved_quantity' => $status === 'skipped' ? null : $validated['approved_quantity'],
-            'notes' => $validated['notes'] ?? null,
-            'processed_by' => $request->user()->id,
-            'ordered_at' => null,
-            'received_at' => null,
-        ]);
-        if ($status === 'proposed') {
-            $action->proposed_by = $request->user()->id;
-            $action->proposed_at = now();
-            $action->approved_by = null;
-            $action->approved_at = null;
-        }
-        if ($status === 'approved') {
-            $action->approved_by = $request->user()->id;
-            $action->approved_at = now();
-            $action->proposed_by ??= $request->user()->id;
-            $action->proposed_at ??= now();
-        }
-        if (in_array($status, ['pending', 'skipped'], true)) {
-            $action->approved_by = null;
-            $action->approved_at = null;
-        }
-        $action->save();
+        $this->saveDecision($action, $status, $validated['approved_quantity'] ?? null, $validated['notes'] ?? null, $request->user());
 
         $logger->log($request->user(), 'restock.action_updated', "Memperbarui tindak lanjut {$result->displayProductName()} menjadi {$action->label()}.", [
             'run_id' => $run->id,
@@ -113,101 +113,122 @@ class RestockActionController extends Controller
 
     public function bulkUpdate(Request $request, MooraRun $run, ActivityLogger $logger): RedirectResponse
     {
-        $isOwner = $request->user()->role === 'owner';
         $validated = $request->validate([
             'status' => ['required', 'in:pending,proposed,approved,skipped'],
             'result_ids' => ['nullable', 'array'],
-            'result_ids.*' => ['integer'],
+            'result_ids.*' => ['integer', 'distinct'],
             'all' => ['nullable', 'boolean'],
+            'input_mode' => ['nullable', 'in:edited,suggested'],
+            'rows' => ['nullable', 'array'],
         ]);
         $status = $validated['status'];
-        if (! $isOwner && ! in_array($status, ['pending', 'proposed'], true)) {
+        if (! $request->user()->isOwner() && ! in_array($status, ['pending', 'proposed'], true)) {
             abort(403, 'Petugas hanya dapat menyimpan draft atau mengirim usulan.');
         }
-        if ($isOwner && ! in_array($status, ['pending', 'proposed', 'approved', 'skipped'], true)) {
-            abort(403);
-        }
 
-        $query = $run->results()->with(['product', 'restockAction']);
+        $ids = collect($validated['result_ids'] ?? [])->map(fn ($id): int => (int) $id)->unique()->values();
+        if (! $request->boolean('all') && $ids->isEmpty()) {
+            throw ValidationException::withMessages(['restock' => 'Pilih setidaknya satu barang untuk tindakan massal.']);
+        }
+        $query = $run->results()->with('product');
         if (! $request->boolean('all')) {
-            $ids = collect($validated['result_ids'] ?? [])->map(fn ($id): int => (int) $id)->unique()->values();
-            if ($ids->isEmpty()) {
-                throw ValidationException::withMessages(['restock' => 'Pilih setidaknya satu barang untuk tindakan massal.']);
-            }
             $query->whereIn('id', $ids);
+            if ((clone $query)->count() !== $ids->count()) {
+                throw ValidationException::withMessages(['restock' => 'Pilihan barang tidak sesuai dengan rekomendasi yang sedang dibuka.']);
+            }
         }
 
         $updated = 0;
         $skipped = 0;
         DB::transaction(function () use ($query, $request, $status, &$updated, &$skipped): void {
-            $query->get()->each(function (MooraResult $result) use ($request, $status, &$updated, &$skipped): void {
+            foreach ($query->lockForUpdate()->get() as $result) {
                 $action = RestockAction::firstOrNew(['moora_result_id' => $result->id]);
-                if ($action->exists && $action->purchase_order_id) {
+                if (! $action->canBeEditedBy($request->user())
+                    || ($request->boolean('all') && in_array($action->status, ['approved', 'skipped'], true))) {
                     $skipped++;
 
-                    return;
+                    continue;
                 }
-                $quantity = $status === 'skipped'
-                    ? null
-                    : ($action->approved_quantity ?? $result->restock_quantity ?? 0);
-                if ($status !== 'skipped' && (float) $quantity <= 0) {
+
+                $quantity = $action->approved_quantity ?? $result->restock_quantity;
+                $notes = $action->notes;
+                if ($request->input('input_mode') === 'edited') {
+                    $row = $request->validate([
+                        "rows.{$result->id}" => ['required', 'array'],
+                        "rows.{$result->id}.approved_quantity" => [
+                            $status === 'skipped' ? 'nullable' : 'required', 'numeric',
+                            in_array($status, ['approved', 'proposed'], true) ? 'gt:0' : 'min:0',
+                        ],
+                        "rows.{$result->id}.notes" => ['nullable', 'string', 'max:1000'],
+                    ])['rows'][$result->id];
+                    $quantity = $row['approved_quantity'] ?? null;
+                    $notes = $row['notes'] ?? null;
+                } elseif ($request->input('input_mode') === 'suggested') {
+                    $quantity = $result->restock_quantity;
+                }
+
+                if ($status !== 'skipped' && in_array($status, ['approved', 'proposed'], true) && (float) $quantity <= 0) {
                     $skipped++;
 
-                    return;
+                    continue;
+                }
+                if ($status !== 'skipped' && $result->product?->usesWholeUnits()
+                    && floor((float) $quantity) !== (float) $quantity) {
+                    throw ValidationException::withMessages([
+                        "rows.{$result->id}.approved_quantity" => "Jumlah {$result->displayProductName()} harus berupa bilangan bulat.",
+                    ]);
                 }
 
-                $action->fill([
-                    'status' => $status,
-                    'approved_quantity' => $quantity,
-                    'processed_by' => $request->user()->id,
-                    'ordered_at' => null,
-                    'received_at' => null,
-                ]);
-                if ($status === 'proposed') {
-                    $action->proposed_by = $request->user()->id;
-                    $action->proposed_at = now();
-                    $action->approved_by = null;
-                    $action->approved_at = null;
-                }
-                if ($status === 'approved') {
-                    $action->proposed_by ??= $request->user()->id;
-                    $action->proposed_at ??= now();
-                    $action->approved_by = $request->user()->id;
-                    $action->approved_at = now();
-                }
-                if (in_array($status, ['pending', 'skipped'], true)) {
-                    $action->approved_by = null;
-                    $action->approved_at = null;
-                }
-                $action->save();
+                $this->saveDecision($action, $status, $quantity, $notes, $request->user());
                 $updated++;
-            });
+            }
+            if ($updated === 0) {
+                throw ValidationException::withMessages([
+                    'restock' => 'Tidak ada barang yang dapat diperbarui. Periksa jumlah, keputusan Owner, dan barang yang sudah masuk pesanan.',
+                ]);
+            }
         });
 
-        if ($updated === 0) {
-            throw ValidationException::withMessages([
-                'restock' => 'Tidak ada barang yang dapat diperbarui. Barang yang sudah masuk pesanan tidak dapat diubah dari halaman ini.',
-            ]);
-        }
-
         $logger->log($request->user(), 'restock.bulk_updated', "Memperbarui {$updated} tindak lanjut restock secara massal.", [
-            'run_id' => $run->id,
-            'status' => $status,
-            'updated' => $updated,
-            'skipped' => $skipped,
-            'all' => $request->boolean('all'),
+            'run_id' => $run->id, 'status' => $status, 'updated' => $updated,
+            'skipped' => $skipped, 'all' => $request->boolean('all'),
         ]);
-
         $message = match ($status) {
             'proposed' => "{$updated} usulan restock dikirim ke Owner.",
-            'approved' => "{$updated} barang disetujui sesuai saran yang tersimpan.",
+            'approved' => "Jumlah keputusan untuk {$updated} barang disimpan dan disetujui.",
             'skipped' => "{$updated} barang ditandai tidak dipesan.",
             default => "{$updated} draft tindak lanjut berhasil disimpan.",
         };
         if ($skipped) {
-            $message .= " {$skipped} barang dilewati karena sudah diproses atau tidak memiliki saran jumlah.";
+            $message .= " {$skipped} barang dilewati karena terkunci atau tidak memiliki jumlah yang dapat dipesan.";
         }
 
         return back()->with('success', $message);
+    }
+
+    private function saveDecision(RestockAction $action, string $status, mixed $quantity, ?string $notes, User $user): void
+    {
+        $action->fill([
+            'status' => $status,
+            'approved_quantity' => $status === 'skipped' ? null : $quantity,
+            'notes' => $notes,
+            'processed_by' => $user->id,
+            'ordered_at' => null,
+            'received_at' => null,
+        ]);
+        if ($status === 'proposed') {
+            $action->proposed_by = $user->id;
+            $action->proposed_at = now();
+        }
+        if ($status === 'approved') {
+            $action->approved_by = $user->id;
+            $action->approved_at = now();
+            $action->proposed_by ??= $user->id;
+            $action->proposed_at ??= now();
+        } else {
+            $action->approved_by = null;
+            $action->approved_at = null;
+        }
+        $action->save();
     }
 }

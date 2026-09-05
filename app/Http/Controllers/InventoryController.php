@@ -23,8 +23,14 @@ class InventoryController extends Controller
             ->when($search !== '', fn ($query) => $query->where(fn ($builder) => $builder
                 ->where('code', 'like', "%{$search}%")
                 ->orWhere('name', 'like', "%{$search}%")));
-        $products = $productQuery->paginate(20, ['*'], 'products_page')->withQueryString();
         $allProducts = Product::query()->with('supplier')->where('active', true)->orderBy('name')->get();
+        $allSummary = $inventory->summaryForProducts($allProducts);
+        if ($request->input('stock') === 'low') {
+            $lowIds = $allProducts->filter(fn ($product) => (float) $product->minimum_stock > 0
+                && $allSummary[$product->id]['on_hand'] < (float) $product->minimum_stock)->pluck('id');
+            $productQuery->whereIn('id', $lowIds);
+        }
+        $products = $productQuery->paginate(20, ['*'], 'products_page')->withQueryString();
 
         $movementProduct = $request->integer('movement_product');
         $movementType = $request->string('movement_type')->toString();
@@ -45,7 +51,7 @@ class InventoryController extends Controller
             'products' => $products,
             'summary' => $inventory->summaryForProducts($products->getCollection()),
             'allProducts' => $allProducts,
-            'allSummary' => $inventory->summaryForProducts($allProducts),
+            'allSummary' => $allSummary,
             'movements' => $movements,
             'search' => $search,
             'movementProduct' => $movementProduct,

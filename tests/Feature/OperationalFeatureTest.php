@@ -80,7 +80,7 @@ class OperationalFeatureTest extends TestCase
         $this->actingAs($staff)->get(route('restock-actions.index', ['run' => $run]))
             ->assertOk()
             ->assertSee('Tindak Lanjut Restock')
-            ->assertSee('Kirim usulan ke Owner');
+            ->assertSee('Kirim Usulan ke Owner');
 
         $this->actingAs($staff)->put(route('restock-actions.update', [$run, $result]), [
             'status' => 'proposed',

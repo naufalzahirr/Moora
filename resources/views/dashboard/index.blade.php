@@ -22,39 +22,38 @@
 @endif
 
 <div class="stats-grid">
-    <div class="stat-card"><span class="stat-icon">BRG</span><div><small>BARANG TERCATAT</small><strong>{{ $productCount }} Barang</strong></div></div>
-    <div class="stat-card"><span class="stat-icon">KRT</span><div><small>KRITERIA DIGUNAKAN</small><strong>{{ $dashboardCriteria->count() }} Kriteria</strong></div></div>
-    @if($minimumStockUnconfiguredCount)
-        <div class="stat-card"><span class="stat-icon red">{{ $minimumStockUnconfiguredCount }}</span><div><small>MINIMUM BELUM DIATUR</small><strong>{{ $minimumStockUnconfiguredCount }} Barang</strong></div></div>
-    @else
-        <div class="stat-card"><span class="stat-icon {{ $lowStockCount ? 'red' : 'green' }}">{{ $lowStockCount }}</span><div><small>STOK DI BAWAH MINIMUM</small><strong>{{ $lowStockCount }} Barang</strong></div></div>
-    @endif
-    <div class="stat-card"><span class="stat-icon blue">{{ $incomingProductCount }}</span><div><small>BARANG DALAM JALAN</small><strong>{{ $incomingProductCount }} Barang</strong></div></div>
+    <a class="stat-card actionable" href="{{ route('inventory.index', ['stock' => 'low']) }}"><div><small>STOK DI BAWAH MINIMUM</small><strong>{{ $lowStockCount }} Barang</strong><span>Periksa stok rendah →</span></div></a>
+    <a class="stat-card actionable" href="{{ route('restock-actions.index', array_filter(['run' => $run?->id, 'status' => 'proposed'])) }}"><div><small>MENUNGGU PERSETUJUAN</small><strong>{{ $proposedCount }} Usulan</strong><span>Tinjau usulan restock →</span></div></a>
+    <a class="stat-card actionable" href="{{ route('purchase-orders.index', ['status' => 'pending']) }}"><div><small>PESANAN PERLU DIPROSES</small><strong>{{ $pendingOrderCount }} Pesanan</strong><span>Tinjau draft dan pengiriman →</span></div></a>
+    <a class="stat-card actionable" href="{{ route('purchase-orders.index', ['status' => 'receiving']) }}"><div><small>MENUNGGU PENERIMAAN</small><strong>{{ $awaitingReceiptCount }} Pesanan</strong><span>Catat barang yang tiba →</span></div></a>
 </div>
+@if($minimumStockUnconfiguredCount)
+<div class="notice info"><strong>{{ $minimumStockUnconfiguredCount }} barang belum memiliki stok minimum.</strong><a href="{{ route('products.index', ['setup' => 'minimum']) }}">Lengkapi pengaturan stok minimum →</a></div>
+@endif
+<p class="context-caption">{{ $productCount }} Barang aktif @if($run) · {{ $run->total_alternatives }} barang pada rekomendasi terakhir @endif</p>
 
 <section class="card dashboard-recommendations">
         <div class="card-header"><div><h2>Prioritas Restock Saat Ini</h2><small>Barang yang paling perlu ditindaklanjuti</small></div>@if($run)<a class="button small" href="{{ route('calculations.results', $run) }}">Lihat Semua Rekomendasi</a>@endif</div>
         @if($run)
             <div class="card-body">
                 <div class="table-wrap">
-                    <table>
+                    <table class="responsive-table">
                         <thead><tr><th>Prioritas</th><th>Nama Barang</th><th class="numeric">Saran Restock</th><th>Status</th></tr></thead>
                         <tbody>
-                        @foreach($run->results->take(5) as $result)
+                        @forelse($priorities as $result)
                             <tr>
                                 <td><span class="rank">{{ $result->rank_system }}</span></td>
                                 <td><strong>{{ $result->displayProductName() }}</strong></td>
                                 <td class="numeric">@if($result->restock_quantity !== null)<strong>{{ $result->product?->formatQuantity($result->restock_quantity, true) ?? '—' }}</strong><br><small>Target {{ $result->product?->formatQuantity($result->restock_target) ?? '—' }} · tersedia {{ $result->product?->formatQuantity($result->onHandAtCalculation($run->criteria_snapshot)) ?? '—' }}</small>@else—@endif</td>
                                 <td>@if($result->restockAction)<x-pill :tone="$result->restockAction->tone()">{{ $result->restockAction->label() }}</x-pill>@else<x-pill tone="gray">Belum ditinjau</x-pill>@endif</td>
                             </tr>
-                        @endforeach
+                        @empty
+                            <tr><td colspan="4" class="empty-cell">Tidak ada saran restock yang masih perlu ditindaklanjuti.</td></tr>
+                        @endforelse
                         </tbody>
                     </table>
                 </div>
-            <div class="summary-box">
-                <strong>Butuh tindak lanjut?</strong>
-                Buka seluruh rekomendasi untuk menyiapkan usulan, persetujuan, dan pesanan pembelian per supplier.
-            </div>
+
             </div>
         @else
             <x-empty-state title="Belum ada rekomendasi" description="Lengkapi Data Operasional lalu buat rekomendasi restock." />

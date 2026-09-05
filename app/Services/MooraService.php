@@ -36,11 +36,18 @@ class MooraService
             ->get()
             ->keyBy('product_id');
 
-        $missingStock = $sales->keys()->reject(fn (int $productId): bool => $stocks->has($productId));
+        $missingStock = $sales->keys()->reject(fn (int $productId): bool => $stocks->get($productId)?->ending_stock !== null);
         if ($missingStock->isNotEmpty()) {
             $names = $missingStock->map(fn (int $id): string => $sales[$id]->product->name)->join(', ');
             throw ValidationException::withMessages([
                 'dataset' => "Stok akhir belum lengkap untuk: {$names}.",
+            ]);
+        }
+
+        $incompleteSales = $sales->filter(fn (Sale $sale): bool => $sale->sold_quantity === null || $sale->sales_value === null);
+        if ($incompleteSales->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'dataset' => 'Data penjualan belum lengkap untuk: '.$incompleteSales->pluck('product.name')->join(', ').'.',
             ]);
         }
 

@@ -48,6 +48,13 @@ class RestockAction extends Model
         return $this->belongsTo(PurchaseOrder::class);
     }
 
+    public function canBeEditedBy(User $user): bool
+    {
+        return ! $this->purchase_order_id
+            && ! in_array($this->status, ['ordered', 'received'], true)
+            && ($user->isOwner() || ! in_array($this->status, ['approved', 'skipped'], true));
+    }
+
     public function label(): string
     {
         return match ($this->status) {

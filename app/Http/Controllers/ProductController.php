@@ -23,6 +23,13 @@ class ProductController extends Controller
                 ->orWhere('name', 'like', "%{$term}%"));
         }
 
+        if ($request->input('setup') === 'minimum') {
+            $query->where('active', true)->where('minimum_stock', '<=', 0);
+        }
+        if ($request->input('setup') === 'supplier') {
+            $query->whereNull('supplier_id');
+        }
+
         $products = $query->paginate(10)->withQueryString();
 
         return view('products.index', compact('products') + [
