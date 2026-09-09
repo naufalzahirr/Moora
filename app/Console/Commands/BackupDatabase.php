@@ -10,7 +10,7 @@ class BackupDatabase extends Command
 {
     protected $signature = 'app:backup-database {--prune=14 : Lama penyimpanan backup dalam hari}';
 
-    protected $description = 'Membuat backup SQLite aplikasi dan membersihkan backup lama';
+    protected $description = 'Membuat backup SQLite/MySQL aplikasi dan membersihkan backup rutin lama';
 
     public function handle(DatabaseBackupService $backups): int
     {

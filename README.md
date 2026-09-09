@@ -40,6 +40,28 @@ DB_CONNECTION=sqlite
 DB_DATABASE=/path/absolut/proyek/database/database.sqlite
 ```
 
+### MySQL lokal melalui Docker
+
+Proyek menyediakan `compose.mysql.yaml` untuk MySQL 8.4 khusus aplikasi ini, dengan volume persisten dan akses lokal pada `127.0.0.1:3308`.
+
+Pada komputer baru, salin `.env.mysql.example` menjadi `.env.mysql`, lalu isi `DB_PASSWORD` dan `MYSQL_ROOT_PASSWORD` dengan dua kata sandi unik. Jalankan:
+
+```bash
+docker compose --env-file .env.mysql -f compose.mysql.yaml up -d --wait
+```
+
+Untuk instalasi baru dengan database kosong, salin nilai `DB_*` dan `BACKUP_MYSQL_CONTAINER` dari `.env.mysql` ke `.env`, lalu jalankan `php artisan config:clear` dan `php artisan migrate --force`. Kredensial tetap disimpan lokal; `.env` dan `.env.mysql` tidak masuk Git. Mengubah kata sandi di file environment tidak mengubah akun MySQL yang sudah dibuat dalam volume.
+
+Untuk instalasi SQLite yang sudah berisi data, migrasi skema saja belum memindahkan data. Cadangkan SQLite, buat skema MySQL kosong, salin data beserta ID dan riwayatnya, lalu verifikasi sebelum mengganti koneksi aplikasi. Jangan menjalankan `migrate:fresh` atau seeder pada data yang sudah digunakan.
+
+Pada komputer ini, pemindahan telah dilakukan pada 9 September 2026 ke database `h2_asia_moora`, pengguna `h2_asia`, port `3308`. Semua 24 tabel diperiksa; laporan verifikasi serta cadangan SQLite dan konfigurasi sebelumnya tersimpan lokal di `storage/app/backups`. Pemeriksaan menyamakan format tanggal, skala kolom desimal, dan representasi angka JSON MySQL. File `database/database.sqlite` tetap tersedia sebagai salinan data sebelum perpindahan; data baru selanjutnya masuk ke MySQL.
+
+Docker Desktop perlu berjalan saat aplikasi dipakai. Untuk menyalakan kembali database, gunakan perintah `up` di atas. Untuk menghentikannya dengan data tetap tersimpan:
+
+```bash
+docker compose --env-file .env.mysql -f compose.mysql.yaml stop
+```
+
 ## Data impor
 
 CSV/XLS/XLSX maksimal 10 MB (hingga 10.000 baris per impor) dapat memakai nama kolom: `kode barang`/`no. barang`, `nama barang`/`deskripsi barang`, `jumlah terjual`/`kts. standar`, dan `nilai penjualan`/`nilai barang`. Nilai numerik wajib terisi, valid, dan nonnegatif. Unduh template CSV pada dialog impor bila diperlukan. Data Operasional dapat disimpan sebagai draft meskipun sebagian kolom masih kosong. Kolom kosong tetap dianggap belum diisi. Lengkapi seluruh penjualan dan stok akhir sebelum membuat rekomendasi. Daftar ditampilkan 50 barang per halaman; simpan perubahan sebelum berpindah halaman.
@@ -79,13 +101,15 @@ Mockup sumber yang diekstrak dari Bab III disimpan di `docs/mockups` sebagai ref
 
 ## Backup database
 
-Untuk SQLite, aplikasi membuat backup harian pada `storage/app/backups` dan menyimpan 14 hari terakhir. Jalankan scheduler Laravel di server:
+Aplikasi mendukung backup SQLite (`.sqlite`) dan MySQL (`.sql`) pada `storage/app/backups`, dengan retensi backup rutin selama 14 hari. Cadangan sebelum migrasi dan berkas manual tidak ikut dihapus. Jadwal harian berjalan ketika scheduler Laravel aktif:
 
 ```bash
 php artisan schedule:work
 ```
 
-Backup manual dapat dibuat dengan `php artisan app:backup-database`. Atur `BACKUP_DAILY_AT` dan `BACKUP_RETENTION_DAYS` pada environment bila diperlukan. Untuk MySQL/PostgreSQL, gunakan backup terkelola dari server database.
+Backup manual dapat dibuat dengan `php artisan app:backup-database`. Atur `BACKUP_DAILY_AT` dan `BACKUP_RETENTION_DAYS` pada environment bila diperlukan.
+
+Untuk MySQL Docker lokal, gunakan `BACKUP_MYSQL_CONTAINER=h2-asia-moora-mysql`. Perintah backup menjalankan `mysqldump` di dalam container menggunakan akun database aplikasi; kata sandi tidak dimasukkan ke argumen perintah. Scheduler perlu akses ke Docker; `BACKUP_DOCKER_BINARY` dapat diisi path absolut CLI Docker bila tidak tersedia pada `PATH` scheduler. Untuk MySQL tanpa Docker, kosongkan `BACKUP_MYSQL_CONTAINER` dan sediakan `mysqldump` pada `PATH` atau atur `BACKUP_MYSQL_BINARY`. Dump menggunakan snapshot transaksi untuk tabel InnoDB aplikasi.
 
 ## Memperbarui instalasi yang sudah ada
 
