@@ -30,11 +30,11 @@ class MooraServiceTest extends TestCase
             'Aqua 600ml',
         ], $rows->pluck('product.name')->all());
 
-        $this->assertEqualsWithDelta(0.3609, $rows[0]['yi'], 0.0001);
-        $this->assertEqualsWithDelta(0.1610, $rows[1]['yi'], 0.0001);
-        $this->assertEqualsWithDelta(0.1197, $rows[2]['yi'], 0.0001);
-        $this->assertEqualsWithDelta(0.0086, $rows[3]['yi'], 0.0001);
-        $this->assertEqualsWithDelta(-0.3426, $rows[4]['yi'], 0.0001);
+        $this->assertEqualsWithDelta(0.36210232, $rows[0]['yi'], 0.0001);
+        $this->assertEqualsWithDelta(0.16159534, $rows[1]['yi'], 0.0001);
+        $this->assertEqualsWithDelta(0.12014980, $rows[2]['yi'], 0.0001);
+        $this->assertEqualsWithDelta(-0.00345070, $rows[3]['yi'], 0.0001);
+        $this->assertEqualsWithDelta(-0.33980721, $rows[4]['yi'], 0.0001);
     }
 
     public function test_seeded_manual_and_system_results_are_fully_consistent(): void

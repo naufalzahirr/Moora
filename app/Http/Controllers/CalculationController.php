@@ -59,6 +59,7 @@ class CalculationController extends Controller
         $currentPeriod = $run ? Period::where('source_type', $run->period->source_type)->whereDate('start_date', $run->period->start_date)->whereDate('end_date', $run->period->end_date)->latest('id')->first() : null;
 
         return view('calculations.results', [
+            'calculationRows' => $run?->results()->orderBy('product_id')->get() ?? collect(),
             'currentPeriod' => $currentPeriod,
             'needsRecalculation' => $currentPeriod && (! $currentPeriod->isLocked() || ($run->period->source_type === 'transactions' && StockTransaction::where('id', '>', $run->period->transaction_cutoff)->whereDate('occurred_on', '<=', $run->period->end_date)->exists())),
             'run' => $run,

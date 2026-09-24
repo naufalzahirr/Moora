@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Period;
 use App\Models\Product;
+use App\Models\StockTransaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -48,6 +49,28 @@ class TransactionWorkflowTest extends TestCase
         $this->assertEquals(['C1' => 112, 'C2' => 3, 'C3' => 9000], $result->raw_values);
         $this->post(route('datasets.revise', $period))->assertForbidden();
         $this->assertEquals(['C1' => 112, 'C2' => 3, 'C3' => 9000], $result->fresh()->raw_values);
+    }
+
+    public function test_new_products_do_not_block_older_range_and_do_not_enter_its_matrix(): void
+    {
+        $this->entry('opening', 20);
+        $this->entry('sale', 2, '2026-09-02', 6000);
+        $new = Product::create(['code' => 'NEW-LATE', 'name' => 'Barang Baru', 'unit' => 'pcs', 'active' => true]);
+        $missing = Product::create(['code' => 'NEW-EMPTY', 'name' => 'Belum Ada Stok', 'unit' => 'pcs', 'active' => true]);
+        StockTransaction::create([
+            'submission_key' => (string) Str::uuid(), 'product_id' => $new->id,
+            'type' => 'opening', 'quantity' => 30, 'sales_value' => 0, 'occurred_on' => '2026-09-20',
+            'recorded_by' => User::where('role', 'owner')->first()->id,
+        ]);
+        foreach (['2026-09-10', '2026-09-24'] as $end) {
+            $this->post(route('transactions.calculate'), ['start_date' => '2026-09-01', 'end_date' => $end])
+                ->assertSessionHasNoErrors()->assertRedirect();
+            $run = Period::latest('id')->first()->runs()->first();
+            $this->assertSame(1, $run->results()->count());
+            $this->assertEquals(['C1' => 18, 'C2' => 2, 'C3' => 6000], $run->results()->first()->raw_values);
+            $this->assertStringContainsString('Barang Baru', $run->notes);
+            $this->get(route('calculations.results', $run))->assertOk()->assertSee('Cakupan analisis')->assertSee('Belum Ada Stok');
+        }
     }
 
     public function test_opening_is_required_once_and_stock_cannot_go_negative(): void

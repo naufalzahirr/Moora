@@ -71,7 +71,7 @@ class DatabaseSeeder extends Seeder
         $sample = [
             ['code' => 'GL01', 'name' => 'Gula Pasir 1kg', 'category' => 'Sembako', 'stock' => 35, 'sold' => 484, 'sales' => 7159600],
             ['code' => '8993379256371', 'name' => 'Minyak Kita 1 Liter Bantal', 'category' => 'Sembako', 'stock' => 18, 'sold' => 204, 'sales' => 3802500],
-            ['code' => 'Minangrasa01', 'name' => 'Beras Minang Rasa 1kg', 'category' => 'Sembako', 'stock' => 22, 'sold' => 98, 'sales' => 1448700],
+            ['code' => 'Minangrasa01', 'name' => 'Beras Minang Rasa 1kg', 'category' => 'Sembako', 'stock' => 25, 'sold' => 98, 'sales' => 1448700],
             ['code' => '089686010824', 'name' => 'Indomie Goreng 5pack', 'category' => 'Makanan Instan', 'stock' => 12, 'sold' => 163, 'sales' => 2380800],
             ['code' => '8886008101053', 'name' => 'Aqua 600ml', 'category' => 'Minuman', 'stock' => 80, 'sold' => 4, 'sales' => 14000],
         ];
@@ -111,9 +111,11 @@ class DatabaseSeeder extends Seeder
         }
 
         $service = app(MooraService::class);
-        $manualValues = $service->calculate($period)['rows']->mapWithKeys(
-            fn (array $row): array => [$row['product']->id => round($row['yi'], 8)]
-        )->all();
+        // Independently calculated from BAB III Table 3.2, not copied from the service under test.
+        $reference = ['GL01' => 0.36210232, '8993379256371' => 0.16159534,
+            'Minangrasa01' => -0.00345070, '089686010824' => 0.12014980, '8886008101053' => -0.33980721];
+        $manualValues = Product::whereIn('code', array_keys($reference))->get()
+            ->mapWithKeys(fn (Product $product): array => [$product->id => $reference[$product->code]])->all();
 
         foreach ($manualValues as $productId => $yi) {
             Sale::where('period_id', $period->id)->where('product_id', $productId)->update(['manual_yi' => $yi]);

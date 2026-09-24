@@ -3,10 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\MooraRun;
+use App\Models\Product;
 use App\Models\StockTransaction;
 use App\Models\User;
 use App\Services\TransactionService;
 use Database\Seeders\HistoricalTransactionDemoSeeder;
+use Database\Seeders\ThesisStockCorrectionSeeder;
 use Database\Seeders\TransactionDemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -33,5 +35,18 @@ class HistoricalTransactionSeederTest extends TestCase
         $count = StockTransaction::count();
         $this->seed(HistoricalTransactionDemoSeeder::class);
         $this->assertSame($count, StockTransaction::count());
+        // Recreate the old 22-unit historical balance and preserve September with an offset.
+        $rice = Product::where('code', 'Minangrasa01')->firstOrFail();
+        $opening = StockTransaction::where('product_id', $rice->id)->where('type', 'opening')->first();
+        $opening->decrement('quantity', 3);
+        StockTransaction::where('product_id', $rice->id)->whereDate('occurred_on', '2026-09-01')->where('type', 'increase')->increment('quantity', 3);
+        $this->seed(ThesisStockCorrectionSeeder::class);
+        $corrected = MooraRun::latest('id')->first()->results()->where('product_id', $rice->id)->first();
+        $this->assertEquals(25, $corrected->raw_values['C1']);
+        $count = StockTransaction::count();
+        $this->seed(ThesisStockCorrectionSeeder::class);
+        $this->assertSame($count, StockTransaction::count());
+        $again = app(TransactionService::class)->calculate('2026-09-01', '2026-09-21', User::where('role', 'owner')->first());
+        $this->assertEquals($september[$rice->id]->raw_values, $again->results->firstWhere('product_id', $rice->id)->raw_values);
     }
 }

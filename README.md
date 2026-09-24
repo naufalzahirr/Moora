@@ -6,7 +6,7 @@ Aplikasi Laravel 12 untuk mengelola siklus restock barang berkelanjutan mengguna
 
 1. **Data Barang:** daftarkan kode, nama, dan satuan barang sekali.
 2. **Transaksi Barang:** catat stok awal pada awal hari mulai pencatatan, kemudian tambah penjualan, barang masuk, atau koreksi jumlah stok. Stok awal boleh nol. Transaksi dicatat berurutan per barang; penjualan dan koreksi keluar tidak boleh membuat stok negatif. Pengiriman ulang formulir yang sama tidak menggandakan transaksi.
-3. **Penilaian MOORA:** pilih tanggal awal dan akhir. C1 adalah saldo stok sampai akhir rentang; C2 dan C3 adalah jumlah dan nilai penjualan selama rentang tersebut. Semua barang aktif harus mempunyai stok awal paling lambat pada tanggal awal analisis. Tidak perlu mengisi rekap manual.
+3. **Penilaian MOORA:** pilih tanggal awal dan akhir. C1 adalah saldo stok sampai akhir rentang; C2 dan C3 adalah jumlah dan nilai penjualan selama rentang tersebut. Barang aktif harus mempunyai stok awal paling lambat pada tanggal awal analisis agar disertakan. Barang yang belum memenuhi syarat dilewati, dengan nama dan alasan tersimpan pada hasil; analisis barang lain tetap berjalan. Tidak perlu mengisi rekap manual.
 4. **Laporan:** lihat ranking, detail perhitungan, dan unduh PDF/Excel.
 
 Penjualan memerlukan total rupiah transaksi (bukan harga satuan). Barang masuk hanya menambah stok. Koreksi stok tidak mengubah total penjualan. Perhitungan menyimpan snapshot; transaksi baru memberi penanda bahwa hasil perlu dihitung ulang tanpa menimpa hasil sebelumnya.
@@ -33,12 +33,27 @@ Migrasi tambahan `2026_09_24_000000_create_stock_transactions_table` membuat tab
 
 Seeder hanya digunakan untuk lingkungan pengembangan/pengujian dan sengaja ditolak pada `APP_ENV=production`. Di production, buat akun Owner awal melalui prosedur provisioning yang aman, gunakan kata sandi unik, dan jangan membagikan kredensial melalui dokumentasi atau kode frontend.
 
+## Data demo yang sama di komputer lain
+
+`git pull` hanya mengambil kode. `migrate` membuat tabel, sedangkan `migrate:fresh` menghapus seluruh tabel dan membuat ulang; keduanya tidak otomatis memasukkan transaksi demo. Seeder default hanya membuat data dasar dan rekap lama.
+
+Untuk database lokal yang kosong atau baru diisi seeder default, gunakan `APP_ENV=local` di `.env`, lalu:
+
+```bash
+php artisan config:clear
+php artisan migrate
+php artisan db:seed --class=CompleteDemoSeeder
+```
+
+Seeder lengkap memuat stok awal, simulasi transaksi Juni–Agustus dan September, koreksi beras 25 sesuai BAB III, serta hasil MOORA. Saldo akhirnya: gula 41, minyak 20, beras 43, Indomie 30, Aqua 75. Menjalankan ulang tidak menggandakan data. Jika sudah ada transaksi pengguna, seeder menolak mencampurnya dengan simulasi. Jangan gunakan `migrate:fresh` untuk database berisi data yang masih diperlukan.
+
 ## Instalasi
 
 ```bash
 cp .env.example .env
 php artisan key:generate
-php artisan migrate:fresh --seed
+php artisan migrate
+php artisan db:seed --class=CompleteDemoSeeder
 npm install
 npm run build
 php artisan serve

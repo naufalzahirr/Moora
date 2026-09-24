@@ -21,10 +21,12 @@
 <x-workflow :step="2" :run="$run" />
 @if($run)
 <div class="notice info"><strong>{{ $run->period->monthlyLabel() }}</strong> Data {{ $run->period->displayRange() }} · dihitung {{ $run->created_at->translatedFormat('d M Y H:i') }}.</div>
+@if(str_starts_with($run->notes ?? '', 'Barang dilewati:'))<div class="notice info"><strong>Cakupan analisis</strong>{{ $run->notes }}</div>@endif
 @if($needsRecalculation)<div class="notice error">Ada data baru setelah perhitungan ini. Hasil ini belum mencerminkan perubahan; <a href="{{ $run->period->source_type === 'transactions' ? route('transactions.analysis') : route('datasets.index', ['period' => $currentPeriod]) }}">buka data dan hitung ulang</a>.</div>@endif
 
-<section class="card">
-    <div class="card-header"><h2>Hasil Penilaian Restock</h2><small>Diurutkan dari nilai MOORA tertinggi</small></div>
+@include('calculations.steps')
+<section class="card" id="ranking">
+    <div class="card-header"><h2>5. Ranking Hasil Penilaian</h2><small>Diurutkan dari nilai MOORA tertinggi</small></div>
     <div class="card-body">
         <form method="GET" class="filter-row page-filter" action="{{ route('calculations.results', $run) }}"><label class="field">Cari barang<input type="search" name="q" value="{{ request('q') }}" placeholder="Kode atau nama barang"></label><button class="button" type="submit">Cari</button>@if(request('q'))<a class="button" href="{{ route('calculations.results', $run) }}">Reset</a>@endif</form>
         <div class="table-wrap">

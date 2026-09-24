@@ -64,12 +64,17 @@ class TransactionService
                 'start_date' => $start, 'end_date' => $end, 'status' => 'ready', 'created_by' => $user->id,
                 'source_type' => 'transactions', 'transaction_cutoff' => $cutoff,
             ]);
+            $skipped = [];
+            $included = 0;
             foreach ($products as $product) {
                 $history = $entries->get($product->id, collect());
                 $opening = $history->firstWhere('type', 'opening');
                 if (! $opening || $opening->occurred_on->toDateString() > $start) {
-                    throw ValidationException::withMessages(['transactions' => 'Stok awal '.$product->name.' harus tersedia pada atau sebelum tanggal awal analisis. Pilih rentang setelah mulai pencatatan.']);
+                    $skipped[] = $product->name.' (stok awal belum tersedia pada tanggal awal analisis)';
+
+                    continue;
                 }
+                $included++;
                 $sales = $history->filter(fn ($item) => $item->type === 'sale' && $item->occurred_on->toDateString() >= $start);
                 Sale::create(['period_id' => $period->id, 'product_id' => $product->id, 'sold_quantity' => $sales->sum('quantity'), 'sales_value' => $sales->sum('sales_value'), 'source_reference' => 'Rekap otomatis transaksi']);
                 StockMovement::create(['period_id' => $period->id, 'product_id' => $product->id,
@@ -77,7 +82,15 @@ class TransactionService
                     'source' => 'Saldo transaksi pada akhir rentang', 'recorded_by' => $user->id]);
             }
 
-            return app(MooraService::class)->execute($period, $user);
+            if ($included === 0) {
+                throw ValidationException::withMessages(['transactions' => 'Belum ada barang yang memiliki stok awal pada atau sebelum tanggal awal analisis. Pilih rentang setelah mulai pencatatan.']);
+            }
+            $run = app(MooraService::class)->execute($period, $user);
+            if ($skipped !== []) {
+                $run->update(['notes' => 'Barang dilewati: '.implode('; ', $skipped).'. '.$included.' barang dianalisis.']);
+            }
+
+            return $run;
         });
     }
 }
