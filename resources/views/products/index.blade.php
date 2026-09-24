@@ -4,6 +4,7 @@
 @section('breadcrumb', 'Data Barang')
 
 @section('content')
+<x-import-controls kind="products" />
 <div class="page-heading">
     <div><h1>Data Barang</h1><p>Kelola informasi barang dan pengaturan restock yang digunakan pada proses operasional.</p></div>
     <div class="heading-actions">

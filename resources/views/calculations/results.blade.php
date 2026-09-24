@@ -13,6 +13,7 @@
                 @foreach($runs as $item)<option value="{{ $item->id }}" @selected($item->id === $run->id)>{{ $item->period->monthlyLabel() }}</option>@endforeach
             </select>
         </form>
+        <a class="button primary" href="{{ route('purchases.review', ['run' => $run]) }}">Pembelian →</a>
         <a class="button" href="{{ route('reports.index', ['run' => $run]) }}">Laporan</a>
         <a class="button primary" href="{{ route('reports.download', $run) }}">Cetak Laporan PDF</a>
     </div>@else<a class="button primary" href="{{ route('transactions.analysis') }}">Mulai Penilaian</a>@endif

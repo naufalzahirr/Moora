@@ -4,6 +4,7 @@
     $steps = [
         ['label' => 'Transaksi', 'url' => route('transactions.index')],
         ['label' => 'Hasil MOORA', 'url' => $run ? route('calculations.results', $run) : null],
+        ['label' => 'Pembelian', 'url' => $run ? route('purchases.review', ['run' => $run]) : null],
         ['label' => 'Laporan', 'url' => $run ? route('reports.index', ['run' => $run]) : null],
     ];
 @endphp

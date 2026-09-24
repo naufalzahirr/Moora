@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\BulkImportController;
 use App\Http\Controllers\CalculationController;
 use App\Http\Controllers\CriterionController;
 use App\Http\Controllers\DashboardController;
@@ -27,6 +28,9 @@ Route::middleware('guest')->group(function (): void {
 Route::middleware(['auth', 'active.user'])->group(function (): void {
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
+
+    Route::get('/impor/{kind}/format', [BulkImportController::class, 'template'])->whereIn('kind', ['products', 'transactions'])->name('bulk.template');
+    Route::post('/impor/{kind}', [BulkImportController::class, 'store'])->whereIn('kind', ['products', 'transactions'])->middleware('role:owner,staff')->name('bulk.store');
 
     Route::get('/transaksi', [TransactionController::class, 'index'])->name('transactions.index');
     Route::get('/penilaian', fn () => view('transactions.analysis'))->name('transactions.analysis');
@@ -67,6 +71,7 @@ Route::middleware(['auth', 'active.user'])->group(function (): void {
     Route::get('/hasil-pengujian/{run?}', [CalculationController::class, 'results'])->name('calculations.results');
     Route::get('/hasil-pengujian/{run}/detail/{result}', [CalculationController::class, 'show'])->name('calculations.show');
     Route::get('/stok-berjalan', [InventoryController::class, 'index'])->name('inventory.index');
+    Route::get('/pembelian', [RestockActionController::class, 'index'])->name('purchases.review');
     Route::get('/tindak-lanjut-restock', [RestockActionController::class, 'index'])->name('restock-actions.index');
     Route::put('/tindak-lanjut-restock/{run}/massal', [RestockActionController::class, 'bulkUpdate'])->middleware('role:owner,staff')->name('restock-actions.bulk-update');
     Route::put('/tindak-lanjut-restock/{run}/{result}', [RestockActionController::class, 'update'])->middleware('role:owner,staff')->name('restock-actions.update');

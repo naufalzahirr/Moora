@@ -2,6 +2,7 @@
 @section('title', 'Transaksi Barang')
 @section('breadcrumb', 'Transaksi Barang')
 @section('content')
+<x-import-controls kind="transactions" />
 <div class="page-heading"><div><h1>Transaksi Barang</h1><p>Tambahkan setiap penjualan atau barang masuk. Stok otomatis berubah, tanpa mengisi ulang rekap.</p></div><a class="button primary" href="{{ route('transactions.analysis') }}">Lanjut ke Penilaian MOORA →</a></div>
 <div class="notice info"><strong>Mulai sekali, lalu lanjutkan setiap hari.</strong>Catat stok awal setiap barang pada awal hari mulai pencatatan (boleh 0). Setelah itu gunakan Penjualan atau Barang masuk. Data rekap lama tetap tersedia di <a href="{{ route('datasets.index') }}">arsip data lama</a>; stok transaksi dimulai dari stok awal yang Anda catat di sini.</div>
 <section class="card"><div class="card-header"><h2>Tambah Transaksi</h2></div><div class="card-body">

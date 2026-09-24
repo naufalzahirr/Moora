@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('title', 'Tindak Lanjut Restock')
-@section('breadcrumb', 'Tindak Lanjut')
+@section('breadcrumb', 'Pembelian')
 
 @section('content')
 @php($isOwner = auth()->user()->isOwner())

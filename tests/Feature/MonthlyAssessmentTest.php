@@ -43,7 +43,7 @@ class MonthlyAssessmentTest extends TestCase
         $this->get(route('datasets.index', ['period' => $run->period]))->assertOk()
             ->assertViewHas('period', fn ($period) => $period->id === $draft->id)
             ->assertViewHas('periods', fn ($periods) => $periods->count() === 1)
-            ->assertSee('1. Data Barang')->assertSee('2. Transaksi Barang')->assertSee('3. Penilaian MOORA')->assertSee('4. Laporan')->assertDontSee('Pembaruan 1');
+            ->assertSee('1. Data Barang')->assertSee('2. Transaksi Barang')->assertSee('3. Penilaian MOORA')->assertSee('4. Pembelian')->assertSee('5. Laporan')->assertDontSee('Pembaruan 1');
         $this->get(route('calculations.results', $run))->assertOk()->assertViewHas('needsRecalculation', true);
         $rows = $draft->sales->mapWithKeys(fn ($sale) => [$sale->product_id => [
             'sold_quantity' => 50, 'sales_value' => 100000, 'ending_stock' => 10,

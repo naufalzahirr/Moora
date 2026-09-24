@@ -7,7 +7,8 @@ Aplikasi Laravel 12 untuk mengelola siklus restock barang berkelanjutan mengguna
 1. **Data Barang:** daftarkan kode, nama, dan satuan barang sekali.
 2. **Transaksi Barang:** catat stok awal pada awal hari mulai pencatatan, kemudian tambah penjualan, barang masuk, atau koreksi jumlah stok. Stok awal boleh nol. Transaksi dicatat berurutan per barang; penjualan dan koreksi keluar tidak boleh membuat stok negatif. Pengiriman ulang formulir yang sama tidak menggandakan transaksi.
 3. **Penilaian MOORA:** pilih tanggal awal dan akhir. C1 adalah saldo stok sampai akhir rentang; C2 dan C3 adalah jumlah dan nilai penjualan selama rentang tersebut. Barang aktif harus mempunyai stok awal paling lambat pada tanggal awal analisis agar disertakan. Barang yang belum memenuhi syarat dilewati, dengan nama dan alasan tersimpan pada hasil; analisis barang lain tetap berjalan. Tidak perlu mengisi rekap manual.
-4. **Laporan:** lihat ranking, detail perhitungan, dan unduh PDF/Excel.
+4. **Pembelian:** petugas mengajukan jumlah barang; hanya Owner dapat mengonfirmasi atau menolak. Persetujuan tidak menambah stok. Barang yang benar-benar diterima dicatat sebagai Barang masuk pada Transaksi Barang.
+5. **Laporan:** lihat ranking, detail perhitungan, dan unduh PDF/Excel.
 
 Penjualan memerlukan total rupiah transaksi (bukan harga satuan). Barang masuk hanya menambah stok. Koreksi stok tidak mengubah total penjualan. Perhitungan menyimpan snapshot; transaksi baru memberi penanda bahwa hasil perlu dihitung ulang tanpa menimpa hasil sebelumnya.
 
@@ -144,3 +145,9 @@ Untuk MySQL Docker lokal, gunakan `BACKUP_MYSQL_CONTAINER=h2-asia-moora-mysql`. 
 Jalankan `php artisan migrate --force` untuk menerapkan migrasi baru, kemudian `npm run build` untuk membangun aset antarmuka. Migrasi draft membuat kolom penjualan dan stok akhir menerima nilai kosong tanpa mengubah nilai yang sudah tersimpan. Cadangkan database sebelum pembaruan.
 
 Validasi: `vendor/bin/phpunit --do-not-cache-result` dan `node --test tests/js/*.test.js`.
+
+## Impor barang dan transaksi
+
+Pada Data Barang dan Transaksi Barang terdapat tombol **Impor Excel / CSV** dan **Unduh Format CSV** berdampingan. Format CSV dapat dibuka di Excel lalu disimpan sebagai CSV/XLS/XLSX; pembaca mengambil sheet pertama. Maksimal 10 MB dan 10.000 baris termasuk judul. Ganti baris contoh dengan data sendiri.
+
+Data barang menggunakan kolom `kode_barang,nama_barang,satuan`. Kode yang sama dengan nama dan satuan identik dilewati; impor tidak menimpa master lama. Transaksi menggunakan `referensi,kode_barang,tanggal,jenis,jumlah,total_penjualan,catatan`. Referensi wajib unik per baris (misalnya nomor-nota/kode-barang/nomor-baris), bukan sekadar satu nomor nota untuk banyak barang. Tanggal teks YYYY-MM-DD; angka tanpa pemisah ribuan/Rp. Jenis: `stok_awal`, `penjualan`, `barang_masuk`, `koreksi_tambah`, `koreksi_kurang`. Urutkan transaksi sesuai tanggal per barang dan daftarkan barang terlebih dahulu. Pengunggahan ulang referensi identik dilewati; referensi sama dengan isi berbeda ditolak. Kesalahan satu baris membatalkan seluruh impor.

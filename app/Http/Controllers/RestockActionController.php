@@ -55,7 +55,7 @@ class RestockActionController extends Controller
             $results = $query->paginate(50)->withQueryString();
         }
 
-        return view('restock-actions.index', compact('run', 'runs', 'results', 'search', 'status', 'supplier', 'suppliers', 'statusCounts', 'purchaseGroups'));
+        return view($request->routeIs('purchases.review') ? 'restock-actions.purchase-review' : 'restock-actions.index', compact('run', 'runs', 'results', 'search', 'status', 'supplier', 'suppliers', 'statusCounts', 'purchaseGroups'));
     }
 
     public function update(

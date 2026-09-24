@@ -18,6 +18,12 @@ class SalesImportService
     /** @return array<int, array{code: string, name: string, sold_quantity: float, sales_value: float, ending_stock?: float|null}> */
     public function parse(UploadedFile $file): array
     {
+        return $this->normalizeRows($this->readRows($file));
+    }
+
+    /** Read CSV/XLS/XLSX cells using the same bounded readers as sales imports. */
+    public function readRows(UploadedFile $file): array
+    {
         $extension = strtolower($file->getClientOriginalExtension());
         $rows = match ($extension) {
             'csv' => $this->parseDelimited($file->getRealPath()),
@@ -26,7 +32,7 @@ class SalesImportService
             default => throw ValidationException::withMessages(['file' => 'Format berkas harus CSV, XLS, atau XLSX.']),
         };
 
-        return $this->normalizeRows($rows);
+        return $rows;
     }
 
     /** @return array<int, array<int, string>> */

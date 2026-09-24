@@ -23,7 +23,8 @@
                 <a href="{{ route('products.index') }}" class="nav-link {{ request()->routeIs('products.*') ? 'active' : '' }}">1. Data Barang</a>
                 <a href="{{ route('transactions.index') }}" class="nav-link {{ request()->routeIs('transactions.index', 'transactions.store') ? 'active' : '' }}">2. Transaksi Barang</a>
                 <a href="{{ route('transactions.analysis') }}" class="nav-link {{ request()->routeIs('calculations.*', 'transactions.analysis', 'transactions.calculate') ? 'active' : '' }}">3. Penilaian MOORA</a>
-                <a href="{{ route('reports.index') }}" class="nav-link {{ request()->routeIs('reports.*') ? 'active' : '' }}">4. Laporan</a>
+                <a href="{{ route('purchases.review') }}" class="nav-link {{ request()->routeIs('restock-actions.*', 'purchase-orders.*', 'purchases.*') ? 'active' : '' }}">4. Pembelian</a>
+                <a href="{{ route('reports.index') }}" class="nav-link {{ request()->routeIs('reports.*') ? 'active' : '' }}">5. Laporan</a>
             </div>
             @if(auth()->user()->role === 'owner')<div class="nav-section"><p>PENGATURAN</p><a href="{{ route('criteria.index') }}" class="nav-link {{ request()->routeIs('criteria.*') ? 'active' : '' }}">Kriteria &amp; Bobot</a><a href="{{ route('activity-logs.index') }}" class="nav-link {{ request()->routeIs('activity-logs.*') ? 'active' : '' }}">Aktivitas</a><a href="{{ route('users.index') }}" class="nav-link {{ request()->routeIs('users.*') ? 'active' : '' }}">Pengguna</a></div>@endif
         </nav>

@@ -52,7 +52,7 @@ class DynamicInterfaceTest extends TestCase
         $this->actingAs($owner)->get(route('datasets.index'))
             ->assertOk()
             ->assertSee('Data Bulanan')
-            ->assertSee('1. Data Barang')->assertSee('2. Transaksi Barang')->assertSee('3. Penilaian MOORA')->assertSee('4. Laporan')
+            ->assertSee('1. Data Barang')->assertSee('2. Transaksi Barang')->assertSee('3. Penilaian MOORA')->assertSee('4. Pembelian')->assertSee('5. Laporan')
             ->assertSee('value="2030-04"', false)
             ->assertSee('max="2030-04"', false)
             ->assertDontSee('Data uji stok akhir')
