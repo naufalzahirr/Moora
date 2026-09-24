@@ -136,7 +136,7 @@ class MooraService
             $minimumOrder = (float) $row['product']->minimum_order_quantity;
             $orderMultiple = max(0.01, (float) $row['product']->order_multiple);
             $restockQuantity = $shortage > 0
-                ? max($minimumOrder, ceil($shortage / $orderMultiple) * $orderMultiple)
+                ? ceil(max($shortage, $minimumOrder) / $orderMultiple) * $orderMultiple
                 : 0.0;
 
             return [
