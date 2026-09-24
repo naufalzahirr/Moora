@@ -17,7 +17,7 @@
         <form class="filter-row" method="GET">
             <label class="sr-only" for="product-search">Cari kode atau nama barang</label>
             <input id="product-search" type="search" name="search" value="{{ request('search') }}" placeholder="Cari kode atau nama barang">
-            <label class="sr-only" for="product-setup">Kelengkapan pengaturan</label><select id="product-setup" name="setup"><option value="">Semua barang</option><option value="minimum" @selected(request('setup') === 'minimum')>Minimum belum diatur</option><option value="supplier" @selected(request('setup') === 'supplier')>Supplier belum ditetapkan</option></select>
+
             <button class="button small" type="submit">Cari</button>
             @if(request('search') || request('setup'))<a class="button small" href="{{ route('products.index') }}">Reset</a>@endif
         </form>
@@ -26,14 +26,12 @@
         @if($products->count())
         <div class="table-wrap">
             <table class="responsive-table">
-                <thead><tr><th>Barang</th><th>Supplier</th><th class="numeric">Stok Minimum</th><th class="numeric">Target Stok</th><th>Status</th><th></th></tr></thead>
+                <thead><tr><th>Barang</th><th>Satuan</th><th>Status</th><th></th></tr></thead>
                 <tbody>
                 @foreach($products as $product)
                     <tr>
                         <td class="identity-cell"><strong>{{ $product->name }}</strong><small>{{ $product->code }} · {{ $product->unit }}</small><small>{{ $product->category?->name ?? 'Tanpa kategori' }}</small></td>
-                        <td>{{ $product->supplier?->name ?? 'Belum ditetapkan' }}</td>
-                        <td class="numeric">{{ (float) $product->minimum_stock > 0 ? $product->formatQuantity($product->minimum_stock) : 'Belum diatur' }}</td>
-                        <td class="numeric">{{ $product->target_stock !== null ? $product->formatQuantity($product->target_stock) : 'Otomatis' }}</td>
+                        <td>{{ $product->unit }}</td>
                         <td><x-pill :tone="$product->active ? 'green' : 'gray'">{{ $product->active ? 'Aktif' : 'Nonaktif' }}</x-pill></td>
                         <td><div class="actions"><button class="button small" type="button" data-dialog-open="edit-product-{{ $product->id }}" aria-controls="edit-product-{{ $product->id }}" aria-expanded="false">Ubah</button>@if($product->active)<form method="POST" action="{{ route('products.destroy', $product) }}" data-confirm="Nonaktifkan barang ini? Riwayat perhitungan tetap disimpan.">@csrf @method('DELETE')<button class="button small danger" type="submit">Nonaktifkan</button></form>@endif</div></td>
                     </tr>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\MonthlyInput;
 use Illuminate\Foundation\Http\FormRequest;
 
 class DatasetImportRequest extends FormRequest
@@ -9,6 +10,11 @@ class DatasetImportRequest extends FormRequest
     public function authorize(): bool
     {
         return in_array($this->user()?->role, ['owner', 'staff'], true);
+    }
+
+    protected function prepareForValidation(): void
+    {
+        MonthlyInput::prepare($this);
     }
 
     public function rules(): array

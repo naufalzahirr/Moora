@@ -19,7 +19,8 @@ class ReportController extends Controller
         $search = trim($request->string('q')->toString());
         $from = $request->string('from')->toString();
         $until = $request->string('until')->toString();
-        $runsQuery = MooraRun::with(['period', 'report'])->latest('id');
+        $latestIds = MooraRun::with('period')->latest('id')->get()->unique(fn ($item) => $item->period->selectionKey())->pluck('id');
+        $runsQuery = MooraRun::with(['period', 'report'])->whereIn('id', $latestIds)->latest('id');
         if ($search !== '') {
             $runsQuery->whereHas('period', fn ($query) => $query->where('name', 'like', "%{$search}%"));
         }
@@ -31,7 +32,9 @@ class ReportController extends Controller
         }
         $runs = $runsQuery->paginate(10)->withQueryString();
         $run = $request->integer('run')
-            ? (clone $runsQuery)->whereKey($request->integer('run'))->first()
+            ? ($search !== '' || $from !== '' || $until !== ''
+                ? (clone $runsQuery)->whereKey($request->integer('run'))->first()
+                : MooraRun::with(['period', 'report'])->find($request->integer('run')))
             : $runs->first();
         $run?->load(['results' => fn ($query) => $query->with('product')->orderBy('rank_system')]);
 

@@ -29,8 +29,8 @@
 </head>
 <body>
 <main>
-<div class="header"><div class="brand">H2 ASIA<br><span style="font-size:8px">MOORA DECISION SUPPORT</span></div><h1>Laporan Rekomendasi Restock MOORA</h1><p>Sistem Pendukung Keputusan Penentuan Restock Barang</p></div>
-<table class="meta"><caption>Identitas laporan</caption><tr><td><small>Rentang Data</small><strong>{{ $run->period->displayRange() }}</strong></td><td><small>Perhitungan</small><strong>#{{ $run->id }} - {{ $run->created_at->translatedFormat('d M Y H:i') }}</strong></td><td><small>Alternatif</small><strong>{{ $run->total_alternatives }} barang</strong></td><td><small>Status</small><strong>Siap ditindaklanjuti</strong></td></tr></table>
+<div class="header"><div class="brand">H2 ASIA<br><span style="font-size:8px">MOORA DECISION SUPPORT</span></div><h1>Laporan Penilaian Restock MOORA</h1><p>Sistem Pendukung Keputusan Penentuan Restock Barang</p></div>
+<table class="meta"><caption>Identitas laporan</caption><tr><td><small>Rentang Data</small><strong>{{ $run->period->displayRange() }}</strong></td><td><small>Perhitungan</small><strong>#{{ $run->id }} - {{ $run->created_at->translatedFormat('d M Y H:i') }}</strong></td><td><small>Alternatif</small><strong>{{ $run->total_alternatives }} barang</strong></td><td><small>Status</small><strong>Selesai dihitung</strong></td></tr></table>
 
 <h2>Matriks Keputusan, Normalisasi, dan Pembobotan</h2>
 <table class="data">
@@ -39,14 +39,14 @@
     <tbody>@foreach($run->results->sortBy('alternative_code') as $result)<tr><th scope="row" class="center">{{ $result->alternative_code }}</th><td>{{ $result->displayProductName() }}</td>@foreach($run->criteria_snapshot as $criterion)<td class="num">{{ number_format($result->raw_values[$criterion['code']], $criterion['source'] === 'sales_value' ? 0 : 2, ',', '.') }}</td><td class="num">{{ number_format($result->normalized_values[$criterion['code']], 4, ',', '.') }}</td><td class="num">{{ number_format($result->weighted_values[$criterion['code']], 4, ',', '.') }}</td>@endforeach</tr>@endforeach</tbody>
 </table>
 
-<h2>Nilai Yi, Ranking, dan Rekomendasi</h2>
+<h2>Nilai Yi dan Ranking</h2>
 <table class="data">
-    <caption>Nilai optimasi, peringkat, dan saran restock</caption>
-    <thead><tr><th scope="col">Rank</th><th scope="col">Alt.</th><th scope="col">Nama Barang</th><th scope="col">Yi Sistem</th><th scope="col">Target Stok</th><th scope="col">Stok Tersedia</th><th scope="col">Dalam Jalan</th><th scope="col">Saran Restock</th></tr></thead>
-    <tbody>@foreach($run->results->sortBy('rank_system') as $result)<tr><th scope="row" class="center">{{ $result->rank_system }}</th><td class="center">{{ $result->alternative_code }}</td><td>{{ $result->displayProductName() }}</td><td class="num">{{ number_format((float)$result->yi_system, 4, ',', '.') }}</td><td class="num">{{ $result->restock_target !== null ? ($result->product?->formatQuantity($result->restock_target) ?? '-') : '-' }}</td><td class="num">{{ $result->product?->formatQuantity($result->onHandAtCalculation($run->criteria_snapshot)) ?? '-' }}</td><td class="num">{{ $result->product?->formatQuantity((float) ($result->restock_basis['incoming'] ?? 0)) ?? '-' }}</td><td class="num">{{ $result->restock_quantity !== null ? ($result->product?->formatQuantity($result->restock_quantity, true) ?? '-') : '-' }}</td></tr>@endforeach</tbody>
+    <caption>Nilai optimasi dan peringkat MOORA</caption>
+    <thead><tr><th scope="col">Rank</th><th scope="col">Alt.</th><th scope="col">Nama Barang</th><th scope="col">Yi Sistem</th></tr></thead>
+    <tbody>@foreach($run->results->sortBy('rank_system') as $result)<tr><th scope="row" class="center">{{ $result->rank_system }}</th><td class="center">{{ $result->alternative_code }}</td><td>{{ $result->displayProductName() }}</td><td class="num">{{ number_format((float)$result->yi_system, 4, ',', '.') }}</td></tr>@endforeach</tbody>
 </table>
 
-<div class="note"><strong>Kesimpulan:</strong> Gunakan daftar rekomendasi ini sebagai dasar keputusan pembelian. Jumlah dihitung dari permintaan harian, lead time, safety stock, stok tersedia, pesanan masuk, MOQ, dan kelipatan pesanan; keputusan akhir tetap berada pada owner H2 Asia Swalayan.</div>
+<div class="note"><strong>Keterangan:</strong> Nilai Yi adalah jumlah nilai benefit terbobot dikurangi jumlah nilai cost terbobot. Ranking diurutkan dari nilai Yi tertinggi. Ranking merupakan bahan pertimbangan restock, bukan keputusan otomatis perlu atau tidak perlu restock. Keputusan akhir berada pada pemilik toko.</div>
 <div class="footer">Dihasilkan oleh SPK Restock H2 Asia pada {{ $report->generated_at->translatedFormat('d F Y H:i') }} · {{ $report->document_name }}</div>
 </main>
 </body>

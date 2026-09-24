@@ -13,7 +13,7 @@ class DynamicInterfaceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_dashboard_prioritizes_the_latest_recommendation_over_a_draft_period(): void
+    public function test_dashboard_guides_the_latest_month_even_before_calculation(): void
     {
         $this->seed();
         $owner = User::where('role', 'owner')->firstOrFail();
@@ -28,12 +28,13 @@ class DynamicInterfaceTest extends TestCase
         $this->actingAs($owner)->get(route('dashboard', ['period' => $period]))
             ->assertOk()
             ->assertDontSee('Periode Dinamis Tanpa Run')
-            ->assertSee('Ada data operasional baru yang belum dihitung.')
-            ->assertSee('Tindak Lanjut Restock')
+            ->assertViewHas('period', fn ($current) => $current->id === $period->id)
+            ->assertViewHas('run', null)
+            ->assertSee('Tambah Transaksi')
             ->assertSee('5 Barang')
-            ->assertSee('Prioritas Restock Saat Ini')
-            ->assertSee('Saran Restock')
-            ->assertSee(route('datasets.index', ['period' => $period]), false);
+            ->assertSee('Hasil Penilaian Terbaru')
+            ->assertDontSee('Saran Restock')
+            ->assertSee(route('transactions.index'), false);
     }
 
     public function test_operational_interface_uses_dynamic_data_defaults_without_exposing_the_seed_date_as_dashboard_copy(): void
@@ -44,17 +45,16 @@ class DynamicInterfaceTest extends TestCase
 
         $this->actingAs($owner)->get(route('dashboard'))
             ->assertOk()
-            ->assertSee('Pantau prioritas restock, kelengkapan data, dan rekomendasi terbaru dalam satu tempat.')
+            ->assertSee('Catat transaksi harian')
             ->assertDontSee('Ringkasan rekomendasi restock untuk periode')
-            ->assertDontSee('01 Jun 2026 - 23 Agt 2026');
+            ->assertSee('Buka arsip data lama');
 
         $this->actingAs($owner)->get(route('datasets.index'))
             ->assertOk()
-            ->assertSee('Data Operasional')
-            ->assertSee('Data Penjualan April 2030')
-            ->assertSee('value="2030-04-01"', false)
-            ->assertSee('value="2030-04-12"', false)
-            ->assertSee('max="2030-04-12"', false)
+            ->assertSee('Data Bulanan')
+            ->assertSee('1. Data Barang')->assertSee('2. Transaksi Barang')->assertSee('3. Penilaian MOORA')->assertSee('4. Laporan')
+            ->assertSee('value="2030-04"', false)
+            ->assertSee('max="2030-04"', false)
             ->assertDontSee('Data uji stok akhir')
             ->assertDontSee('Yi Manual');
 
@@ -70,7 +70,7 @@ class DynamicInterfaceTest extends TestCase
 
         $this->actingAs($owner)->get(route('datasets.index'))
             ->assertOk()
-            ->assertSee('C1 · Persediaan Tersisa')
+            ->assertSee('Persediaan Tersisa')->assertDontSee('C1 · Persediaan Tersisa')
             ->assertSee('aria-label="Persediaan tersisa Gula Pasir 1kg"', false)
             ->assertSee('data-dataset-form', false);
 
@@ -106,6 +106,6 @@ class DynamicInterfaceTest extends TestCase
             ->assertDontSee('Nilai Kriteria')
             ->assertSee('name="search"', false)
             ->assertSee('1 barang ditemukan')
-            ->assertSee('Stok Minimum');
+            ->assertSee('Satuan');
     }
 }

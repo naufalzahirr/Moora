@@ -15,7 +15,7 @@ use ZipArchive;
 
 class SalesImportService
 {
-    /** @return array<int, array{code: string, name: string, sold_quantity: float, sales_value: float}> */
+    /** @return array<int, array{code: string, name: string, sold_quantity: float, sales_value: float, ending_stock?: float|null}> */
     public function parse(UploadedFile $file): array
     {
         $extension = strtolower($file->getClientOriginalExtension());
@@ -212,7 +212,7 @@ class SalesImportService
 
     /**
      * @param  array<int, array<int, string>>  $rows
-     * @return array<int, array{code: string, name: string, sold_quantity: float, sales_value: float}>
+     * @return array<int, array{code: string, name: string, sold_quantity: float, sales_value: float, ending_stock?: float|null}>
      */
     private function normalizeRows(array $rows): array
     {
@@ -273,6 +273,15 @@ class SalesImportService
                 $salesValue = null;
             }
 
+            $endingStock = null;
+            if (isset($map['ending_stock']) && trim((string) ($row[$map['ending_stock']] ?? '')) !== '') {
+                try {
+                    $endingStock = $this->number($row[$map['ending_stock']], 'stok akhir', $rowNumber);
+                } catch (RuntimeException $exception) {
+                    $errors[] = $exception->getMessage();
+                }
+            }
+
             if ($code === '' || $name === '' || $soldQuantity === null || $salesValue === null || isset($seenCodes[strtolower($code)])) {
                 continue;
             }
@@ -284,6 +293,7 @@ class SalesImportService
                 'name' => $name,
                 'sold_quantity' => $soldQuantity,
                 'sales_value' => $salesValue,
+                ...(isset($map['ending_stock']) ? ['ending_stock' => $endingStock] : []),
             ];
         }
 
@@ -305,11 +315,12 @@ class SalesImportService
             'code' => ['kode barang', 'no barang', 'no. barang', 'kode', 'code'],
             'name' => ['nama barang', 'deskripsi barang', 'barang', 'description'],
             'sold_quantity' => ['jumlah terjual', 'kts standar', 'kts. standar', 'terjual', 'qty'],
+            'ending_stock' => ['stok akhir', 'stock akhir', 'ending stock', 'sisa stok'],
             'sales_value' => ['nilai penjualan', 'nilai barang', 'omzet', 'sales value'],
         ];
         $map = [];
         foreach ($row as $index => $heading) {
-            $heading = strtolower(trim(preg_replace('/\s+/', ' ', ltrim((string) $heading, "\xEF\xBB\xBF"))));
+            $heading = strtolower(trim(preg_replace('/\s+/', ' ', ltrim(str_replace('_', ' ', (string) $heading), "\xEF\xBB\xBF"))));
             foreach ($aliases as $field => $values) {
                 if (in_array($heading, $values, true)) {
                     $map[$field] = $index;

@@ -18,17 +18,17 @@ class MooraWorkflowTest extends TestCase
         $owner = User::where('role', 'owner')->firstOrFail();
         $run = MooraRun::with('results')->firstOrFail();
 
-        $this->actingAs($owner)->get('/dashboard')->assertOk()->assertSee('Dashboard Restock')->assertSee('Prioritas Restock Saat Ini');
+        $this->actingAs($owner)->get('/dashboard')->assertOk()->assertSee('Penilaian Restock')->assertSee('Hasil Penilaian Terbaru');
         $this->actingAs($owner)->get('/data-barang')->assertOk()->assertSee('Gula Pasir 1kg');
         $this->actingAs($owner)->get('/supplier')->assertOk()->assertSee('Supplier dan Lead Time');
         $this->actingAs($owner)->get('/kriteria-bobot')->assertOk()->assertSee('Stok Akhir');
         $this->actingAs($owner)->get('/data-uji')->assertOk()->assertSee('Ringkasan Penjualan per Barang.xlsx');
         $this->actingAs($owner)->get('/proses-moora')->assertRedirect(route('datasets.index'));
-        $this->actingAs($owner)->get(route('calculations.results', $run))->assertOk()->assertSee('Hasil Rekomendasi Restock');
-        $this->actingAs($owner)->get(route('calculations.show', [$run, $run->results->first()]))->assertOk()->assertSee('Detail Rekomendasi MOORA');
+        $this->actingAs($owner)->get(route('calculations.results', $run))->assertOk()->assertSee('Hasil Penilaian Restock');
+        $this->actingAs($owner)->get(route('calculations.show', [$run, $run->results->first()]))->assertOk()->assertSee('Detail Penilaian MOORA');
         $this->actingAs($owner)->get('/stok-berjalan')->assertOk()->assertSee('Stok Berjalan');
         $this->actingAs($owner)->get('/pesanan-pembelian')->assertOk()->assertSee('Belum ada pesanan pembelian');
-        $this->actingAs($owner)->get('/laporan')->assertOk()->assertSee('Arsip Laporan')->assertSee('Riwayat Rekomendasi');
+        $this->actingAs($owner)->get('/laporan')->assertOk()->assertSee('Laporan')->assertSee('Riwayat Penilaian');
         $this->actingAs($owner)->get(route('activity-logs.index'))->assertOk()->assertSee('Log Aktivitas');
     }
 
@@ -90,7 +90,7 @@ class MooraWorkflowTest extends TestCase
 
         $run = MooraRun::latest('id')->firstOrFail();
         $response->assertRedirect(route('calculations.results', $run))
-            ->assertSessionHas('success', 'Data disimpan dan rekomendasi restock berhasil dibuat.');
+            ->assertSessionHas('success', 'Data disimpan dan penilaian restock berhasil dibuat.');
         $this->assertSame($draft->id, $run->period_id);
         $this->assertDatabaseHas('periods', ['id' => $draft->id, 'status' => 'completed']);
         $this->assertDatabaseHas('activity_logs', ['user_id' => $staff->id, 'action' => 'moora.executed']);
@@ -111,7 +111,7 @@ class MooraWorkflowTest extends TestCase
 
         $this->actingAs($owner)->get(route('calculations.results'))
             ->assertOk()
-            ->assertSee('Belum ada rekomendasi')
-            ->assertSee('Lengkapi Data Operasional');
+            ->assertSee('Belum ada penilaian')
+            ->assertSee('Mulai Penilaian');
     }
 }

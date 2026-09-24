@@ -13,6 +13,7 @@ use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RestockActionController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -26,6 +27,11 @@ Route::middleware('guest')->group(function (): void {
 Route::middleware(['auth', 'active.user'])->group(function (): void {
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
+
+    Route::get('/transaksi', [TransactionController::class, 'index'])->name('transactions.index');
+    Route::get('/penilaian', fn () => view('transactions.analysis'))->name('transactions.analysis');
+    Route::post('/transaksi', [TransactionController::class, 'store'])->middleware('role:owner,staff')->name('transactions.store');
+    Route::post('/penilaian', [TransactionController::class, 'calculate'])->middleware('role:owner,staff')->name('transactions.calculate');
 
     Route::get('/data-barang', [ProductController::class, 'index'])->name('products.index');
     Route::middleware('role:owner,staff')->group(function (): void {

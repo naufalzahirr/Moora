@@ -21,14 +21,14 @@ class ExportController extends Controller
         foreach ($criteria as $criterion) {
             $header[] = $criterion['code'].' '.$criterion['name'];
         }
-        $header = [...$header, 'Yi Sistem', 'Target Stok', 'Stok Tersedia', 'Pesanan Masuk', 'Saran Restock'];
+        $header = [...$header, 'Yi Sistem'];
         $rows = $run->results->map(function ($result) use ($criteria): array {
             $values = [$result->rank_system, $result->alternative_code, $result->displayProductCode(), $result->displayProductName()];
             foreach ($criteria as $criterion) {
                 $values[] = $result->raw_values[$criterion['code']] ?? null;
             }
 
-            return [...$values, $result->yi_system, $result->restock_target, $result->onHandAtCalculation($criteria->all()), $result->restock_basis['incoming'] ?? null, $result->restock_quantity];
+            return [...$values, $result->yi_system];
         })->all();
 
         return $this->download('Hasil_Restock_MOORA_Run-'.$run->id.'.xlsx', 'Hasil MOORA', $header, $rows);

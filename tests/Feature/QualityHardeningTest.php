@@ -102,7 +102,8 @@ class QualityHardeningTest extends TestCase
 
         $this->actingAs($owner)->get(route('calculations.results', $run))
             ->assertOk()
-            ->assertSee('tersedia '.number_format($stockAtCalculation, 0, ',', '.'));
+            ->assertSee(number_format((float) $result->yi_system, 6, ',', '.'));
+        $this->assertSame($stockAtCalculation, $result->onHandAtCalculation($run->criteria_snapshot));
     }
 
     public function test_pdf_download_is_tagged_when_chrome_is_available_or_falls_back_safely(): void

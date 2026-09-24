@@ -125,6 +125,6 @@ class ImportWorkflowTest extends TestCase
             ->get(route('datasets.template.download'))
             ->assertOk()
             ->assertDownload('template-impor-penjualan.csv')
-            ->assertSee('kode_barang,nama_barang,jumlah_terjual,nilai_penjualan');
+            ->assertSee('kode_barang,nama_barang,stok_akhir,jumlah_terjual,nilai_penjualan');
     }
 }

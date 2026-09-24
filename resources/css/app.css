@@ -382,3 +382,14 @@ input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+.monthly-guide { margin: 18px 0; }
+.guide-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 36px; margin: 0; padding: 24px 28px 24px 48px; }
+.guide-steps li { padding-left: 6px; line-height: 1.6; }
+.guide-steps li::marker { color: #1074aa; font-size: 18px; font-weight: 800; }
+.guide-steps li > strong { font-size: 15px; }
+.guide-steps p { margin: 7px 0; color: var(--muted); }
+.guide-steps small { display: block; line-height: 1.6; }
+.guide-current { display: flex; flex-direction: column; gap: 5px; padding: 16px 24px; background: #edf7fc; border-top: 1px solid #cfe1ee; line-height: 1.6; }
+@media (max-width: 700px) { .guide-steps { grid-template-columns: 1fr; gap: 20px; padding: 20px 20px 20px 40px; } }
+@media print { .monthly-guide { display: none; } }

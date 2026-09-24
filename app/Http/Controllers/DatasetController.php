@@ -12,6 +12,7 @@ use App\Models\StockMovement;
 use App\Services\ActivityLogger;
 use App\Services\MooraService;
 use App\Services\SalesImportService;
+use App\Support\MonthlyInput;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -30,7 +31,12 @@ class DatasetController extends Controller
     {
         $period = $request->integer('period')
             ? Period::findOrFail($request->integer('period'))
-            : Period::latest('id')->first();
+            : Period::where('source_type', 'manual')->latest('id')->first();
+
+        abort_if($period?->source_type === 'transactions', 403, 'Hasil transaksi tidak diedit sebagai rekap. Tambahkan transaksi lalu hitung ulang.');
+        if ($period) {
+            $period = Period::where('source_type', 'manual')->whereDate('start_date', $period->start_date)->whereDate('end_date', $period->end_date)->latest('id')->first();
+        }
 
         $sales = $period
             ? $period->sales()->with('product')->orderBy('product_id')->paginate(50)->withQueryString()
@@ -40,7 +46,7 @@ class DatasetController extends Controller
 
         return view('datasets.index', [
             'period' => $period,
-            'periods' => Period::latest('updated_at')->latest('id')->get(),
+            'periods' => Period::where('source_type', 'manual')->orderByDesc('start_date')->latest('id')->get()->unique(fn ($item) => $item->selectionKey()),
             'sales' => $sales,
             'stocks' => $stocks,
             'criteria' => $criteria,
@@ -54,6 +60,7 @@ class DatasetController extends Controller
 
     public function storePeriod(Request $request, ActivityLogger $logger): RedirectResponse
     {
+        MonthlyInput::prepare($request);
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'start_date' => ['required', 'date', 'before_or_equal:today'],
@@ -85,7 +92,7 @@ class DatasetController extends Controller
             return $period;
         });
 
-        $logger->log($request->user(), 'period.created', "Membuat data operasional {$period->name}.", ['period_id' => $period->id]);
+        $logger->log($request->user(), 'period.created', "Membuat data bulanan {$period->name}.", ['period_id' => $period->id]);
 
         return redirect()->route('datasets.index', ['period' => $period])->with('success', 'Data operasional baru siap diisi.');
     }
@@ -130,6 +137,16 @@ class DatasetController extends Controller
                         ['name' => $row['name'], 'unit' => 'pcs', 'active' => true]
                     );
 
+                    if (($row['ending_stock'] ?? null) !== null) {
+                        StockMovement::create([
+                            'period_id' => $period->id,
+                            'product_id' => $product->id,
+                            'ending_stock' => $row['ending_stock'],
+                            'source' => 'Impor stok akhir',
+                            'recorded_by' => $request->user()->id,
+                        ]);
+                    }
+
                     Sale::updateOrCreate(
                         ['period_id' => $period->id, 'product_id' => $product->id],
                         [
@@ -138,6 +155,10 @@ class DatasetController extends Controller
                             'source_reference' => $request->file('file')->getClientOriginalName(),
                         ]
                     );
+                }
+
+                if (collect($rows)->every(fn ($row) => ($row['ending_stock'] ?? null) !== null)) {
+                    $period->update(['status' => 'ready']);
                 }
 
                 return $period;
@@ -156,7 +177,7 @@ class DatasetController extends Controller
         ]);
 
         return redirect()->route('datasets.index', ['period' => $period])
-            ->with('success', count($rows).' baris penjualan berhasil diimpor. Lengkapi stok akhir sebelum membuat rekomendasi.'.($nameMismatches->isNotEmpty() ? ' Nama master untuk '.$nameMismatches->join(', ').' tidak diubah; perbarui melalui Data Barang bila diperlukan.' : ''));
+            ->with('success', count($rows).' baris data berhasil diimpor. '.($period->status === 'ready' ? 'Penjualan dan stok akhir sudah terisi. Periksa data lalu klik Hitung MOORA.' : 'Lengkapi stok akhir yang masih kosong, lalu klik Hitung MOORA.').($nameMismatches->isNotEmpty() ? ' Nama master untuk '.$nameMismatches->join(', ').' tidak diubah; perbarui melalui Data Barang bila diperlukan.' : ''));
     }
 
     public function update(DatasetRequest $request, ActivityLogger $logger, MooraService $moora): RedirectResponse
@@ -166,7 +187,7 @@ class DatasetController extends Controller
 
         if ($period->isLocked()) {
             throw ValidationException::withMessages([
-                'period' => 'Data yang sudah selesai terkunci untuk menjaga riwayat rekomendasi. Buat pembaruan untuk melakukan perubahan.',
+                'period' => 'Data yang sudah selesai terkunci untuk menjaga riwayat penilaian. Pilih Edit Data untuk melakukan perubahan.',
             ]);
         }
 
@@ -198,7 +219,7 @@ class DatasetController extends Controller
             $period->update(['status' => $complete ? 'ready' : 'draft']);
         });
 
-        $logger->log($request->user(), 'dataset.updated', "Menyimpan data operasional {$period->displayName()}.", ['period_id' => $period->id]);
+        $logger->log($request->user(), 'dataset.updated', "Menyimpan data bulanan {$period->displayName()}.", ['period_id' => $period->id]);
 
         if ($request->string('next')->toString() === 'calculate') {
             $period->load('sales');
@@ -206,22 +227,23 @@ class DatasetController extends Controller
                 fn (Sale $sale): array => [$sale->product_id => $sale->manual_yi]
             )->all();
             $run = $moora->execute($period, $request->user(), $manualValues);
-            $logger->log($request->user(), 'moora.executed', "Membuat rekomendasi untuk {$period->displayName()}.", [
+            $logger->log($request->user(), 'moora.executed', "Membuat penilaian untuk {$period->displayName()}.", [
                 'period_id' => $period->id,
                 'run_id' => $run->id,
                 'accuracy' => $run->accuracy,
             ]);
 
             return redirect()->route('calculations.results', $run)
-                ->with('success', 'Data disimpan dan rekomendasi restock berhasil dibuat.');
+                ->with('success', 'Data disimpan dan penilaian restock berhasil dibuat.');
         }
 
         return redirect()->route('datasets.index', ['period' => $period, 'page' => $request->integer('page', 1)])
-            ->with('success', $period->status === 'ready' ? 'Data berhasil disimpan dan siap dibuatkan rekomendasi.' : 'Draft tersimpan. Isian yang belum lengkap dapat dilanjutkan nanti.');
+            ->with('success', $period->status === 'ready' ? 'Data berhasil disimpan dan siap dibuatkan penilaian.' : 'Draft tersimpan. Isian yang belum lengkap dapat dilanjutkan nanti.');
     }
 
     public function revise(Request $request, Period $period, ActivityLogger $logger): RedirectResponse
     {
+        abort_if($period->source_type === 'transactions', 403, 'Tambahkan transaksi lalu hitung ulang.');
         if (! $period->isLocked()) {
             throw ValidationException::withMessages([
                 'period' => 'Hanya data yang sudah selesai yang dapat dibuatkan pembaruan.',
@@ -231,7 +253,7 @@ class DatasetController extends Controller
         [$revision, $created] = DB::transaction(function () use ($period, $request): array {
             $sourcePeriod = Period::query()->lockForUpdate()->findOrFail($period->id);
             $existingDraft = $sourcePeriod->revisions()
-                ->where('status', 'draft')
+                ->whereIn('status', ['draft', 'ready'])
                 ->latest('id')
                 ->first();
             if ($existingDraft) {
@@ -285,8 +307,8 @@ class DatasetController extends Controller
 
         return redirect()->route('datasets.index', ['period' => $revision])
             ->with('success', $created
-                ? 'Pembaruan data dibuat sebagai draft. Ubah data, lalu buat rekomendasi sebagai riwayat baru.'
-                : 'Draft pembaruan yang sudah ada dibuka kembali. Tidak ada pembaruan ganda yang dibuat.');
+                ? 'Data siap diedit. Simpan perubahan lalu hitung MOORA kembali.'
+                : 'Data yang sedang diedit dibuka kembali.');
     }
 
     public function discardRevision(Request $request, Period $period, ActivityLogger $logger): RedirectResponse
@@ -326,7 +348,7 @@ class DatasetController extends Controller
 
     public function downloadTemplate(): Response
     {
-        return response("kode_barang,nama_barang,jumlah_terjual,nilai_penjualan\nBRG-001,Contoh Barang,0,0\n", 200, [
+        return response("kode_barang,nama_barang,stok_akhir,jumlah_terjual,nilai_penjualan\nBRG-001,Contoh Barang,20,100,300000\n", 200, [
             'Content-Type' => 'text/csv; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="template-impor-penjualan.csv"',
         ]);
@@ -382,13 +404,13 @@ class DatasetController extends Controller
         }
 
         $overlap = Period::query()
-            ->whereNull('revision_of_id')
+            ->where('source_type', 'manual')->whereNull('revision_of_id')
             ->whereDate('start_date', '<=', $endDate)
             ->whereDate('end_date', '>=', $startDate)
             ->first();
         if ($overlap) {
             throw ValidationException::withMessages([
-                'start_date' => "Rentang tanggal bertumpang tindih dengan data {$overlap->displayName()}. Buat pembaruan bila data tersebut yang perlu diperbarui.",
+                'start_date' => "Rentang tanggal bertumpang tindih dengan data {$overlap->displayName()}. Buka data tersebut lalu pilih Edit Data untuk memperbaikinya.",
             ]);
         }
     }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\MooraResult;
 use App\Models\MooraRun;
 use App\Models\Period;
+use App\Models\StockTransaction;
 use App\Services\ActivityLogger;
 use App\Services\MooraService;
 use Illuminate\Http\RedirectResponse;
@@ -27,7 +28,7 @@ class CalculationController extends Controller
         $period = Period::with('sales')->findOrFail($validated['period_id']);
         if ($period->isLocked()) {
             throw ValidationException::withMessages([
-                'period' => 'Data ini sudah tersimpan sebagai riwayat. Buat pembaruan pada Data Operasional untuk menghitung versi baru.',
+                'period' => 'Data ini sudah tersimpan sebagai riwayat. Pilih Edit Data pada Data Bulanan untuk menghitung versi baru.',
             ]);
         }
         $manualValues = $period->sales->mapWithKeys(
@@ -35,7 +36,7 @@ class CalculationController extends Controller
         )->all();
 
         $run = $service->execute($period, $request->user(), $manualValues);
-        $logger->log($request->user(), 'moora.executed', "Membuat rekomendasi restock untuk {$period->displayName()}.", [
+        $logger->log($request->user(), 'moora.executed', "Membuat penilaian restock untuk {$period->displayName()}.", [
             'period_id' => $period->id,
             'run_id' => $run->id,
             'accuracy' => $run->accuracy,
@@ -55,12 +56,16 @@ class CalculationController extends Controller
             $run->load('period');
         }
 
+        $currentPeriod = $run ? Period::where('source_type', $run->period->source_type)->whereDate('start_date', $run->period->start_date)->whereDate('end_date', $run->period->end_date)->latest('id')->first() : null;
+
         return view('calculations.results', [
+            'currentPeriod' => $currentPeriod,
+            'needsRecalculation' => $currentPeriod && (! $currentPeriod->isLocked() || ($run->period->source_type === 'transactions' && StockTransaction::where('id', '>', $run->period->transaction_cutoff)->whereDate('occurred_on', '<=', $run->period->end_date)->exists())),
             'run' => $run,
             'results' => $run?->results()->with(['product', 'restockAction'])
                 ->when($request->filled('q'), fn ($query) => $query->searchProduct(trim($request->string('q')->toString())))
                 ->orderBy('rank_system')->paginate(50)->withQueryString(),
-            'runs' => MooraRun::with('period')->latest('id')->get(),
+            'runs' => MooraRun::with('period')->latest('id')->get()->unique(fn ($item) => $item->period->selectionKey()),
         ]);
     }
 

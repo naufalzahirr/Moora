@@ -2,7 +2,20 @@
 
 Aplikasi Laravel 12 untuk mengelola siklus restock barang berkelanjutan menggunakan **MOORA (Multi-Objective Optimization on the Basis of Ratio Analysis)**. MOORA menentukan prioritas barang; jumlah pembelian dihitung terpisah dari kebutuhan permintaan, lead time, stok, dan pesanan yang masih berjalan.
 
-## Fitur
+## Alur utama: transaksi dan penilaian otomatis
+
+1. **Data Barang:** daftarkan kode, nama, dan satuan barang sekali.
+2. **Transaksi Barang:** catat stok awal pada awal hari mulai pencatatan, kemudian tambah penjualan, barang masuk, atau koreksi jumlah stok. Stok awal boleh nol. Transaksi dicatat berurutan per barang; penjualan dan koreksi keluar tidak boleh membuat stok negatif. Pengiriman ulang formulir yang sama tidak menggandakan transaksi.
+3. **Penilaian MOORA:** pilih tanggal awal dan akhir. C1 adalah saldo stok sampai akhir rentang; C2 dan C3 adalah jumlah dan nilai penjualan selama rentang tersebut. Semua barang aktif harus mempunyai stok awal paling lambat pada tanggal awal analisis. Tidak perlu mengisi rekap manual.
+4. **Laporan:** lihat ranking, detail perhitungan, dan unduh PDF/Excel.
+
+Penjualan memerlukan total rupiah transaksi (bukan harga satuan). Barang masuk hanya menambah stok. Koreksi stok tidak mengubah total penjualan. Perhitungan menyimpan snapshot; transaksi baru memberi penanda bahwa hasil perlu dihitung ulang tanpa menimpa hasil sebelumnya.
+
+Data rekap lama dan modul pembelian lama dipertahankan sebagai arsip. Data agregat lama tidak dipecah menjadi transaksi harian secara otomatis karena tanggal transaksi aslinya tidak diketahui. Buku transaksi baru memakai stok awal eksplisit dan terpisah dari mutasi operasional lama agar tidak menghitung ganda. Akses arsip data lama tersedia pada Dashboard dan Transaksi Barang. PDF yang sudah diarsipkan tetap mempertahankan dokumen aslinya.
+
+Migrasi tambahan `2026_09_24_000000_create_stock_transactions_table` membuat tabel transaksi dan metadata sumber analisis tanpa menghapus data lama. Jalankan `php artisan migrate --force` setelah membuat cadangan database.
+
+## Fitur dan modul yang tersedia
 
 - Login berbasis peran `owner` dan `petugas`, termasuk manajemen akun aktif/nonaktif.
 - Dashboard kondisi rekomendasi, stok minimum, dan barang dalam perjalanan.

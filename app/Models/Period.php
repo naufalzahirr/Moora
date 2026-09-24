@@ -10,7 +10,7 @@ class Period extends Model
 {
     protected $fillable = [
         'name', 'start_date', 'end_date', 'source_file', 'source_path', 'source_sha256', 'source_size',
-        'source_mime', 'status', 'created_by', 'revision_of_id', 'calculated_at',
+        'source_type', 'transaction_cutoff', 'source_mime', 'status', 'created_by', 'revision_of_id', 'calculated_at',
     ];
 
     protected function casts(): array
@@ -50,6 +50,22 @@ class Period extends Model
     public function runs(): HasMany
     {
         return $this->hasMany(MooraRun::class);
+    }
+
+    public function selectionKey(): string
+    {
+        return $this->source_type.'/'.$this->start_date->format('Y-m-d').'/'.$this->end_date->format('Y-m-d');
+    }
+
+    public function monthlyLabel(): string
+    {
+        if ($this->source_type === 'transactions') {
+            return $this->displayRange();
+        }
+
+        return $this->start_date->format('Y-m') === $this->end_date->format('Y-m')
+            ? $this->start_date->translatedFormat('F Y')
+            : 'Data lama · '.$this->displayRange();
     }
 
     public function displayRange(): string

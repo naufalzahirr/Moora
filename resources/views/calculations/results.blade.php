@@ -1,54 +1,53 @@
 @extends('layouts.app')
 
-@section('title', 'Hasil Rekomendasi Restock')
-@section('breadcrumb', 'Hasil Rekomendasi')
+@section('title', 'Hasil Penilaian Restock')
+@section('breadcrumb', 'Hasil Penilaian')
 
 @section('content')
 <div class="page-heading">
-    <div><h1>Hasil Rekomendasi Restock</h1><p>Prioritas restock dan jumlah pengadaan yang disarankan untuk setiap barang.</p></div>
+    <div><h1>Hasil Penilaian Restock</h1><p>Nilai dan ranking MOORA sebagai bahan pertimbangan pemilik toko. Ranking bukan keputusan perlu atau tidak perlu restock.</p></div>
     @if($run)<div class="heading-actions">
         <form class="period-switcher" method="GET" action="{{ route('calculations.results') }}">
-            <label class="filter-label" for="result-run">Riwayat rekomendasi</label>
+            <label class="filter-label" for="result-run">Rentang / riwayat penilaian</label>
             <select id="result-run" name="run" data-auto-submit>
-                @foreach($runs as $item)<option value="{{ $item->id }}" @selected($item->id === $run->id)>{{ $item->period->displayName() }} · dibuat {{ $item->created_at->translatedFormat('d M Y H:i') }}</option>@endforeach
+                @foreach($runs as $item)<option value="{{ $item->id }}" @selected($item->id === $run->id)>{{ $item->period->monthlyLabel() }}</option>@endforeach
             </select>
         </form>
-        <a class="button" href="{{ route('reports.index', ['run' => $run]) }}">Buka Arsip Laporan</a>
-        <a class="button primary" href="{{ route('restock-actions.index', ['run' => $run]) }}">Tindak Lanjut</a>
-    </div>@else<a class="button primary" href="{{ route('datasets.index') }}">Lengkapi Data Operasional</a>@endif
+        <a class="button" href="{{ route('reports.index', ['run' => $run]) }}">Laporan</a>
+        <a class="button primary" href="{{ route('reports.download', $run) }}">Cetak Laporan PDF</a>
+    </div>@else<a class="button primary" href="{{ route('transactions.analysis') }}">Mulai Penilaian</a>@endif
 </div>
 
 <x-workflow :step="2" :run="$run" />
 @if($run)
-@php($freshness = $run->period->freshness())
-<div class="notice {{ $freshness['is_stale'] ? 'error' : 'info' }}"><strong>{{ $freshness['is_stale'] ? 'Cakupan data ini sudah melewati batas pembaruan.' : 'Cakupan data masih mutakhir.' }}</strong> Data penjualan dan stok sampai {{ $run->period->end_date->translatedFormat('d M Y') }} ({{ $freshness['days_old'] }} hari lalu); perhitungan dibuat {{ $run->created_at->translatedFormat('d M Y H:i') }}.</div>
+<div class="notice info"><strong>{{ $run->period->monthlyLabel() }}</strong> Data {{ $run->period->displayRange() }} · dihitung {{ $run->created_at->translatedFormat('d M Y H:i') }}.</div>
+@if($needsRecalculation)<div class="notice error">Ada data baru setelah perhitungan ini. Hasil ini belum mencerminkan perubahan; <a href="{{ $run->period->source_type === 'transactions' ? route('transactions.analysis') : route('datasets.index', ['period' => $currentPeriod]) }}">buka data dan hitung ulang</a>.</div>@endif
 
 <section class="card">
-    <div class="card-header"><h2>Prioritas Rekomendasi</h2><small>Diurutkan dari prioritas tertinggi</small></div>
+    <div class="card-header"><h2>Hasil Penilaian Restock</h2><small>Diurutkan dari nilai MOORA tertinggi</small></div>
     <div class="card-body">
         <form method="GET" class="filter-row page-filter" action="{{ route('calculations.results', $run) }}"><label class="field">Cari barang<input type="search" name="q" value="{{ request('q') }}" placeholder="Kode atau nama barang"></label><button class="button" type="submit">Cari</button>@if(request('q'))<a class="button" href="{{ route('calculations.results', $run) }}">Reset</a>@endif</form>
         <div class="table-wrap">
             <table class="responsive-table">
-                <thead><tr><th>Prioritas</th><th>Nama Barang</th><th class="numeric">Saran Restock</th><th>Tindak Lanjut</th><th></th></tr></thead>
+                <thead><tr><th>Ranking</th><th>Nama Barang</th><th class="numeric">Nilai MOORA (Yi)</th><th></th></tr></thead>
                 <tbody>
                 @forelse($results as $result)
                     <tr>
                         <td><span class="rank">{{ $result->rank_system }}</span></td>
                         <td><strong>{{ $result->displayProductName() }}</strong><br><small>{{ $result->displayProductCode() }}</small></td>
 
-                        <td class="numeric">@if($result->restock_quantity !== null)<strong>{{ $result->product?->formatQuantity($result->restock_quantity, true) ?? '—' }}</strong><br><small>Target {{ $result->product?->formatQuantity($result->restock_target) ?? '—' }} · tersedia {{ $result->product?->formatQuantity($result->onHandAtCalculation($run->criteria_snapshot)) ?? '—' }}</small>@else—@endif</td>
-                        <td>@if($result->restockAction)<x-pill :tone="$result->restockAction->tone()">{{ $result->restockAction->label() }}</x-pill>@else<x-pill tone="gray">Belum ditinjau</x-pill>@endif</td>
-                        <td><a class="button small" href="{{ route('calculations.show', [$run, $result]) }}">Detail</a></td>
+                        <td class="numeric">{{ number_format((float) $result->yi_system, 6, ',', '.') }}</td>
+                        <td><a class="button small" href="{{ route('calculations.show', [$run, $result]) }}">Detail Perhitungan</a></td>
                     </tr>
-                @empty<tr><td colspan="5" class="empty-cell">Tidak ada barang yang sesuai dengan pencarian.</td></tr>@endforelse
+                @empty<tr><td colspan="4" class="empty-cell">Tidak ada barang yang sesuai dengan pencarian.</td></tr>@endforelse
                 </tbody>
             </table>
         </div>
         <x-pagination :paginator="$results" />
-        <div style="display:flex;justify-content:space-between;gap:16px;align-items:center;margin-top:22px;color:var(--muted);font-size:11px"><span>Keputusan akhir restock tetap berada pada owner H2 Asia Swalayan.</span><x-pill tone="blue">{{ $run->period->displayName() }}</x-pill></div>
+        <div style="display:flex;justify-content:space-between;gap:16px;align-items:center;margin-top:22px;color:var(--muted);font-size:11px"><span>Keputusan akhir restock tetap berada pada owner H2 Asia Swalayan.</span><x-pill tone="blue">{{ $run->period->monthlyLabel() }}</x-pill></div>
     </div>
 </section>
 @else
-<section class="card"><x-empty-state title="Belum ada rekomendasi" description="Lengkapi data operasional, lalu pilih Simpan & Buat Rekomendasi untuk melihat prioritas restock di sini." /></section>
+<section class="card"><x-empty-state title="Belum ada penilaian" description="Catat transaksi, lalu pilih rentang analisis dan hitung MOORA." /></section>
 @endif
 @endsection

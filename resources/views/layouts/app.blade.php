@@ -19,10 +19,13 @@
 
         <nav class="nav-list" aria-label="Menu utama">
             <div class="nav-section"><p>RINGKASAN</p><a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">Dashboard</a></div>
-            <div class="nav-section"><p>PERSEDIAAN</p><a href="{{ route('products.index') }}" class="nav-link {{ request()->routeIs('products.*') ? 'active' : '' }}">Data Barang</a><a href="{{ route('suppliers.index') }}" class="nav-link {{ request()->routeIs('suppliers.*') ? 'active' : '' }}">Supplier</a><a href="{{ route('datasets.index') }}" class="nav-link {{ request()->routeIs('datasets.*') ? 'active' : '' }}">Data Operasional</a><a href="{{ route('inventory.index') }}" class="nav-link {{ request()->routeIs('inventory.*') ? 'active' : '' }}">Stok Berjalan</a></div>
-            <div class="nav-section"><p>ANALISIS</p><a href="{{ route('criteria.index') }}" class="nav-link {{ request()->routeIs('criteria.*') ? 'active' : '' }}">Kriteria & Bobot</a><a href="{{ route('calculations.results') }}" class="nav-link {{ request()->routeIs('calculations.results', 'calculations.show') ? 'active' : '' }}">Hasil Rekomendasi</a></div>
-            <div class="nav-section"><p>EKSEKUSI</p><a href="{{ route('restock-actions.index') }}" class="nav-link {{ request()->routeIs('restock-actions.*') ? 'active' : '' }}">Tindak Lanjut</a><a href="{{ route('purchase-orders.index') }}" class="nav-link {{ request()->routeIs('purchase-orders.*') ? 'active' : '' }}">Pesanan Pembelian</a><a href="{{ route('reports.index') }}" class="nav-link {{ request()->routeIs('reports.*') ? 'active' : '' }}">Arsip Laporan</a></div>
-            @if(auth()->user()->role === 'owner')<div class="nav-section"><p>PENGATURAN</p><a href="{{ route('activity-logs.index') }}" class="nav-link {{ request()->routeIs('activity-logs.*') ? 'active' : '' }}">Aktivitas</a><a href="{{ route('users.index') }}" class="nav-link {{ request()->routeIs('users.*') ? 'active' : '' }}">Pengguna</a></div>@endif
+            <div class="nav-section"><p>IKUTI URUTAN INI</p>
+                <a href="{{ route('products.index') }}" class="nav-link {{ request()->routeIs('products.*') ? 'active' : '' }}">1. Data Barang</a>
+                <a href="{{ route('transactions.index') }}" class="nav-link {{ request()->routeIs('transactions.index', 'transactions.store') ? 'active' : '' }}">2. Transaksi Barang</a>
+                <a href="{{ route('transactions.analysis') }}" class="nav-link {{ request()->routeIs('calculations.*', 'transactions.analysis', 'transactions.calculate') ? 'active' : '' }}">3. Penilaian MOORA</a>
+                <a href="{{ route('reports.index') }}" class="nav-link {{ request()->routeIs('reports.*') ? 'active' : '' }}">4. Laporan</a>
+            </div>
+            @if(auth()->user()->role === 'owner')<div class="nav-section"><p>PENGATURAN</p><a href="{{ route('criteria.index') }}" class="nav-link {{ request()->routeIs('criteria.*') ? 'active' : '' }}">Kriteria &amp; Bobot</a><a href="{{ route('activity-logs.index') }}" class="nav-link {{ request()->routeIs('activity-logs.*') ? 'active' : '' }}">Aktivitas</a><a href="{{ route('users.index') }}" class="nav-link {{ request()->routeIs('users.*') ? 'active' : '' }}">Pengguna</a></div>@endif
         </nav>
 
     </aside>

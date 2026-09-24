@@ -1,0 +1,11 @@
+@props(['period' => null])
+<section class="card monthly-guide" aria-labelledby="monthly-guide-title">
+    <div class="card-header"><div><h2 id="monthly-guide-title">Ikuti langkah-langkah ini</h2><small>Kerjakan berurutan dari langkah 1 sampai 4.</small></div></div>
+    <ol class="guide-steps">
+        <li><strong>Pilih atau buat bulan penilaian</strong><p>Untuk data baru, klik <b>+ Buat Data Bulanan</b> dan pilih bulan. Kalau sudah punya Excel/CSV, klik <b>Impor Data Penjualan</b>. Untuk melanjutkan data lama, pilih pada daftar <b>Bulan / riwayat</b>.</p><small>Belum ada barang? Tambahkan sekali di <a href="{{ route('products.index') }}">Data Barang</a>; daftar barang akan tersedia saat membuat bulan baru.</small></li>
+        <li><strong>Periksa data setiap barang</strong><p>Jika diimpor, data terisi otomatis dari berkas. Lengkapi hanya kolom yang kosong: <b>stok akhir</b> pada akhir periode, <b>jumlah terjual</b> selama periode, dan <b>nilai penjualan</b> dalam rupiah. Contoh: sisa 20 pcs, terjual 100 pcs, total penjualan Rp300.000.</p><small>Isi 0 jika memang nol. Kolom kosong berarti belum diisi. Untuk koreksi hasil yang sudah dihitung, klik <b>Edit Data</b>.</small></li>
+        <li><strong>Simpan, lalu hitung MOORA</strong><p>Klik <b>Simpan</b> jika ingin melanjutkan nanti atau sebelum pindah halaman tabel. Setelah semua baris lengkap, klik <b>Hitung MOORA</b>; isian halaman ini ikut disimpan.</p><small>Tidak perlu menghitung normalisasi atau nilai Yi sendiri.</small></li>
+        <li><strong>Baca hasil dan cetak laporan</strong><p>Setelah dihitung, aplikasi membuka nilai dan ranking. Klik <b>Detail Perhitungan</b> untuk melihat proses MOORA, atau <b>Cetak Laporan PDF</b> untuk mengunduh laporan.</p><small>Bulan berikutnya, ulangi dari langkah 1 dengan bulan baru. Data lama tetap menjadi riwayat.</small></li>
+    </ol>
+    @if($period)<div class="guide-current" role="status"><strong>Sedang dibuka: {{ $period->monthlyLabel() }}</strong><span>{{ $period->isLocked() ? 'Sudah dihitung — lihat hasil, atau klik Edit Data jika ada koreksi.' : ($period->revision_of_id ? 'Sedang dikoreksi — lanjutkan langkah 2 dan hitung ulang pada langkah 3.' : 'Lanjutkan langkah 2: lengkapi data pada tabel di bawah.') }}</span></div>@endif
+</section>

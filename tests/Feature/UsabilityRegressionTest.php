@@ -181,17 +181,17 @@ class UsabilityRegressionTest extends TestCase
             ->assertDontSee(route('reports.download', $run), false)->assertDontSee(route('exports.run', $run), false);
     }
 
-    public function test_low_stock_and_missing_configuration_are_visible_together(): void
+    public function test_dashboard_focuses_on_monthly_completeness_while_legacy_inventory_remains_available(): void
     {
         Product::where('code', 'GL01')->update(['minimum_stock' => 1000]);
         $this->actingAs($this->owner())->get(route('dashboard'))->assertOk()
-            ->assertViewHas('lowStockCount', fn ($count) => $count > 0)
-            ->assertSee('STOK DI BAWAH MINIMUM')->assertSee('barang belum memiliki stok minimum.');
+            ->assertViewHas('completeCount', 5)
+            ->assertSee('STOK AWAL TERCATAT')->assertDontSee('STOK DI BAWAH MINIMUM');
         $this->get(route('inventory.index', ['stock' => 'low']))->assertOk()
             ->assertViewHas('products', fn ($products) => $products->total() === 1);
     }
 
-    public function test_dashboard_omits_completed_actions_and_counts_current_active_products(): void
+    public function test_monthly_ranking_is_independent_of_purchase_status_and_counts_active_products(): void
     {
         $run = MooraRun::firstOrFail();
         $result = $run->results()->where('restock_quantity', '>', 0)->firstOrFail();
@@ -199,7 +199,7 @@ class UsabilityRegressionTest extends TestCase
         Product::create(['name' => 'Baru', 'code' => 'NEW-ACTIVE', 'unit' => 'pcs', 'active' => true]);
         $this->actingAs($this->owner())->get(route('dashboard'))
             ->assertViewHas('productCount', 6)
-            ->assertViewHas('priorities', fn ($priorities) => ! $priorities->contains('id', $result->id));
+            ->assertViewHas('results', fn ($results) => $results->contains('id', $result->id));
     }
 
     public function test_purchase_preview_counts_suppliers_instead_of_items(): void

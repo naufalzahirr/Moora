@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
-@section('title', 'Detail Rekomendasi MOORA')
-@section('breadcrumb', 'Hasil Rekomendasi / Detail')
+@section('title', 'Detail Penilaian MOORA')
+@section('breadcrumb', 'Hasil Penilaian / Detail')
 
 @section('content')
 <div class="page-heading">
-    <div><h1>Detail Rekomendasi MOORA</h1><p>Nilai awal, normalisasi, pembobotan, dan dasar peringkat rekomendasi.</p></div>
+    <div><h1>Detail Penilaian MOORA</h1><p>Nilai awal, normalisasi, pembobotan, dan dasar peringkat rekomendasi.</p></div>
     <div class="heading-actions"><button class="button primary" type="button" data-print-page>Cetak Detail</button></div>
 </div>
 
@@ -42,22 +42,8 @@
         <h2 style="margin:3px 0 18px">Hasil Alternatif</h2>
         <div class="result-stack">
             <div class="metric"><small>NILAI YI</small><strong>{{ number_format((float)$result->yi_system, 4, ',', '.') }}</strong></div>
-            <div class="metric"><small>SARAN RESTOCK</small><strong>{{ $result->product?->formatQuantity($result->restock_quantity, true) ?? '—' }}</strong></div>
             <div class="metric"><small>PERINGKAT</small><strong>{{ $result->rank_system }} dari {{ $run->total_alternatives }}</strong></div>
         </div>
-        @if($result->restock_basis)
-            <div class="notice info" style="margin:14px 0">
-                <strong>Dasar jumlah restock</strong>
-                @if(($result->restock_basis['source'] ?? null) === 'historical_period_snapshot')
-                    Rekomendasi historis ini memakai stok akhir yang tersimpan pada data operasional: {{ $result->product?->formatQuantity($result->onHandAtCalculation($run->criteria_snapshot), true) ?? '—' }}. Data stok berjalan saat ini tidak mengubah hasil perhitungan lama.
-                @else
-                    Rata-rata {{ number_format((float) ($result->restock_basis['average_daily_demand'] ?? 0), $result->product?->usesWholeUnits() ? 0 : 2, ',', '.') }} {{ $result->product?->unit }}/hari · stok tersedia {{ $result->product?->formatQuantity($result->onHandAtCalculation($run->criteria_snapshot)) ?? '—' }} · pesanan masuk {{ $result->product?->formatQuantity((float) ($result->restock_basis['incoming'] ?? 0)) ?? '—' }}.<br>
-                    Target menghitung lead time {{ $result->restock_basis['lead_time_days'] ?? 0 }} hari, masa tinjau {{ $result->restock_basis['review_period_days'] ?? 0 }} hari, dan safety stock {{ $result->product?->formatQuantity((float) ($result->restock_basis['safety_stock'] ?? 0)) ?? '—' }}.
-                @endif
-            </div>
-        @endif
-        <div class="notice info" style="margin:14px 0"><strong>Status tindak lanjut: {{ $result->restockAction?->label() ?? 'Belum ditinjau' }}</strong>{{ $result->restockAction?->notes ?: 'Tentukan jumlah keputusan dan status pesanan pada menu Tindak Lanjut Restock.' }}</div>
-        <a class="button primary wide" href="{{ route('restock-actions.index', ['run' => $run]) }}">Tindak Lanjut Restock</a>
         <a class="button wide" style="margin-top:10px" href="{{ route('calculations.results', $run) }}">Kembali ke Hasil</a>
     </aside>
 </div>
